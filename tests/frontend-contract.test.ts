@@ -76,11 +76,12 @@ test('página de abertura explica canais e legenda sem antecipar conclusões', (
   assert.match(styles, /scope-legend-item--problem/);
 });
 
-test('apresentação exibe Instagram da Dirijo e CTA clicável de WhatsApp', () => {
+test('apresentação exibe a identificação da Dirijo e CTA clicável de WhatsApp', () => {
   assert.match(app, /@dirijo\.br/);
   assert.match(app, /5527998615616/);
   assert.match(app, /Gostei da análise\. Vamos agendar\?/);
   assert.match(app, /slide-cta-links/);
+  assert.doesNotMatch(app, /Conhecer a Dirijo/);
   assert.match(presentationActionsStyles, /slide-handle/);
   assert.match(presentationActionsStyles, /slide-cta-link--primary/);
 });

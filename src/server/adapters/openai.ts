@@ -143,6 +143,7 @@ Cada achado precisa:
 - recommendedDirection: direção específica, sem tutorial completo.
 
 Use exemplos e temas do negócio quando eles estiverem comprovados. Reconheça pontos fortes. Não invente um defeito para preencher a estrutura. Para respostas às avaliações, use targetLayout responses. Para a leitura geral das avaliações, use reputation.
+Se a amostra tiver zero avaliações, trate a ausência de avaliações como problema de reputação, mas trate o bloco de respostas apenas como preparação: não existem comentários ignorados e isso não é uma falha da empresa.
 
 Não afirme receita perdida, crescimento garantido, posição exata no Google ou causalidade absoluta. Não exponha identidade de avaliadores.
 
@@ -153,6 +154,7 @@ const VERIFIER_PROMPT = `Você é a checagem final de um diagnóstico comercial.
 Devolva exatamente um achado para cada item de findingLayouts. Preserve targetLayout e utilize somente evidenceIds disponíveis. Corrija textos genéricos, conclusões não sustentadas, exageros, repetições e termos técnicos. Mantenha detalhes personalizados comprovados. Quando o indicador estiver bom, preserve-o como ponto forte. Quando não houver confirmação suficiente, use linguagem de oportunidade ou de validação, nunca trate como erro confirmado.
 
 Não acrescente informações externas. Não afirme receita perdida, crescimento garantido, posição exata no Google ou causalidade absoluta. Não exponha identidade de avaliadores.
+Se a amostra tiver zero avaliações, nunca diga que a empresa deixou clientes sem resposta. Explique que ainda não há comentários para responder e apresente a criação da rotina como oportunidade futura.
 
 Escreva para uma pessoa leiga. Nunca repita nomes internos de campos ou termos técnicos. Não use ownerResponseCount, ownerResponseRate, napConsistency, HTTPS, sitemap, structured data, score, reviews, business account, posts, CTA, NAP, canonical, schema, LCP, FCP, CLS, engajamento, prova social, proatividade, lead, CRM, rastreamento ou SEO. Prefira frases naturais como "nenhuma avaliação analisada recebeu resposta", "o site usa conexão segura", "o teste no celular apresentou bom desempenho", "pessoas interessadas" e "acompanhamento dos resultados".`;
 
@@ -190,6 +192,10 @@ function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence
     const evidenceIds = candidate.evidenceIds.filter((id) => compatibleIds.has(id));
     const finalEvidenceIds = evidenceIds.length ? evidenceIds.slice(0, 3) : compatibleEvidence.slice(0, 2).map((item) => item.id);
     if (!finalEvidenceIds.length) throw new Error(`O achado ${layout} não possui evidência compatível.`);
+    const missingWebsite = layout === 'website' && compatibleEvidence.some((item) => {
+      const value = item.value && typeof item.value === 'object' && !Array.isArray(item.value) ? item.value as Record<string, unknown> : undefined;
+      return value?.present === false;
+    });
     const finding: Finding = {
       id: `ai-${layout}`,
       analysisId: evidence[0]?.analysisId ?? '',
@@ -197,7 +203,7 @@ function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence
       headline: normalize(('headline' in candidate && candidate.headline) ? candidate.headline : defaultHeadline(layout)),
       evidenceIds: finalEvidenceIds,
       category: allowedCategories.includes(candidate.category) ? candidate.category : categoryByLayout[layout] ?? 'general',
-      priority: candidate.priority,
+      priority: missingWebsite ? 'important' : candidate.priority,
       observation: normalize(candidate.observation),
       possibleImpact: normalize(candidate.possibleImpact),
       idealState: normalize(candidate.idealState),
@@ -205,6 +211,26 @@ function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence
       approved: false,
       position,
     };
+    const noPublicReviews = ['reputation', 'responses'].includes(layout) && compatibleEvidence.some((item) => {
+      const value = item.value && typeof item.value === 'object' && !Array.isArray(item.value) ? item.value as Record<string, unknown> : undefined;
+      return value?.sampleSize === 0;
+    });
+    if (noPublicReviews && layout === 'reputation') Object.assign(finding, {
+      headline: 'Avaliações no Google: a clínica ainda não possui relatos públicos.',
+      priority: 'important',
+      observation: 'Não foram encontradas avaliações públicas no Perfil da Empresa no Google.',
+      possibleImpact: 'Quem ainda não conhece a clínica encontra menos relatos públicos para reduzir dúvidas antes de marcar um atendimento.',
+      idealState: 'O perfil deveria reunir avaliações autênticas e recentes que descrevam o atendimento e a experiência oferecida.',
+      recommendedDirection: 'Criar uma rotina simples para convidar pacientes satisfeitos a registrar avaliações verdadeiras no Google.',
+    });
+    if (noPublicReviews && layout === 'responses') Object.assign(finding, {
+      headline: 'Respostas no Google: a rotina pode nascer junto com as primeiras avaliações.',
+      priority: 'opportunity',
+      observation: 'Como ainda não há avaliações públicas, também não existem comentários aguardando resposta da clínica.',
+      possibleImpact: 'Isso não representa uma falha atual. A oportunidade é começar corretamente e demonstrar atenção desde as primeiras avaliações recebidas.',
+      idealState: 'As primeiras avaliações deveriam receber respostas humanas, cuidadosas e coerentes com o atendimento da clínica.',
+      recommendedDirection: 'Definir desde agora quem acompanhará e responderá as futuras avaliações no Perfil da Empresa no Google.',
+    });
     [finding.headline ?? '', finding.observation, finding.possibleImpact, finding.idealState, finding.recommendedDirection].forEach((text) => {
       assertSafeClaim(text); assertPlainLanguage(text);
     });

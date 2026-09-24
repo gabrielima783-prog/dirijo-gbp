@@ -1,4 +1,5 @@
 import type { InstagramPostSnapshot, InstagramSnapshot, PlaceSnapshot, PublicReview } from "../../shared/types.js";
+import { chromium } from "playwright";
 
 export interface FetchLike { (input: string | URL | Request, init?: RequestInit): Promise<Response> }
 export interface ApifyRunResult { runId: string; datasetId: string; costUsd: number; items: unknown[] }
@@ -16,6 +17,7 @@ export class ApifyClient {
   private readonly actorId: string;
   private readonly baseUrl: string;
   private readonly waitSeconds: number;
+  private readonly resolvedMapsUrls = new Map<string, string>();
 
   constructor(private readonly options: ApifyClientOptions) {
     this.fetcher = options.fetch ?? fetch;
@@ -55,13 +57,17 @@ export class ApifyClient {
   }
 
   async collectPlace(mapsUrl: string, reviewSort: "newest" | "lowestRanking" = "newest", maxReviews = 60): Promise<ApifyRunResult> {
-    const resolvedMapsUrl = await resolveSharedGoogleMapsUrl(mapsUrl, this.fetcher);
-    return this.run({
+    const cached = this.resolvedMapsUrls.get(mapsUrl);
+    const resolvedMapsUrl = cached ?? await resolveSharedGoogleMapsUrl(mapsUrl, this.fetcher);
+    this.resolvedMapsUrls.set(mapsUrl, resolvedMapsUrl);
+    const result = await this.run({
       startUrls: [{ url: resolvedMapsUrl }], language: "pt-BR", maxCrawledPlacesPerSearch: 1,
       scrapePlaceDetailPage: true, maxReviews, reviewsSort: reviewSort,
       reviewsOrigin: "google", scrapeReviewsPersonalData: false,
       maxImages: 12, scrapeImageAuthors: false, skipClosedPlaces: false,
     });
+    assertCollectedPlaceMatchesUrl(result.items[0], resolvedMapsUrl);
+    return result;
   }
 
   async collectCompetitors(category: string, location: string): Promise<ApifyRunResult> {
@@ -99,15 +105,69 @@ export async function resolveSharedGoogleMapsUrl(rawUrl: string, fetcher: FetchL
   });
   if (!response.ok) throw new Error(`Não foi possível abrir o link compartilhado do Google (${response.status}).`);
   const html = (await response.text()).slice(0, 1_000_000);
-  const encodedHref = html.match(/href=["']([^"']*\/search\?q=[^"']+)["']/i)?.[1];
-  if (!encodedHref) throw new Error("O link share.google não revelou a empresa. Gere um novo link pelo Google Maps.");
-  const searchUrl = new URL(encodedHref.replace(/&amp;/gi, "&"), "https://www.google.com");
-  const query = searchUrl.searchParams.get("q")?.trim();
-  if (!query) throw new Error("O link share.google não contém o nome da empresa.");
-  const mapsUrl = new URL("https://www.google.com/maps/search/");
-  mapsUrl.searchParams.set("api", "1");
-  mapsUrl.searchParams.set("query", query);
-  return mapsUrl.href;
+  const exactFromHtml = exactMapsPlaceUrl(html, response.url);
+  if (exactFromHtml) return exactFromHtml;
+
+  const exactFromBrowser = await resolveSharedLinkInBrowser(rawUrl).catch(() => undefined);
+  if (exactFromBrowser) return exactFromBrowser;
+
+  throw new Error("Não foi possível confirmar a ficha exata desse link compartilhado. Abra a empresa no Google Maps, use Compartilhar > Copiar link e tente novamente.");
+}
+
+function exactMapsPlaceUrl(html: string, baseUrl: string): string | undefined {
+  const decoded = html.replace(/&amp;/gi, "&").replace(/\\u003d/gi, "=").replace(/\\u0026/gi, "&").replace(/\\\//g, "/");
+  const href = decoded.match(/(?:href=["']|["'])(https?:\/\/[^"']*google\.[^/"']+\/maps\/place\/[^"']+|\/maps\/place\/[^"']+)["']/i)?.[1];
+  if (!href) return undefined;
+  const resolved = /^https?:\/\//i.test(href) ? new URL(href) : new URL(href, baseUrl || "https://www.google.com");
+  resolved.hash = "";
+  return resolved.href;
+}
+
+async function resolveSharedLinkInBrowser(rawUrl: string): Promise<string | undefined> {
+  const launchOptions = { headless: true, args: ["--disable-blink-features=AutomationControlled"] };
+  let browser: Awaited<ReturnType<typeof chromium.launch>>;
+  try {
+    browser = await chromium.launch({ ...launchOptions, channel: "chrome" });
+  } catch {
+    browser = await chromium.launch(launchOptions);
+  }
+  try {
+    const page = await browser.newPage({
+      locale: "pt-BR",
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    });
+    await page.goto(rawUrl, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    await page.waitForTimeout(1_500);
+    const hrefs = await page.locator('a[href*="/maps/place/"]').evaluateAll((anchors) => anchors.map((anchor) => (anchor as HTMLAnchorElement).href));
+    const exact = hrefs.find((href) => /google\.[^/]+\/maps\/place\//i.test(href));
+    return exact ? new URL(exact).href : undefined;
+  } finally {
+    await browser.close();
+  }
+}
+
+export function assertCollectedPlaceMatchesUrl(item: unknown, resolvedMapsUrl: string): void {
+  const expected = expectedPlaceName(resolvedMapsUrl);
+  if (!expected || !item || typeof item !== "object") return;
+  const actual = string((item as Record<string, unknown>).title ?? (item as Record<string, unknown>).name);
+  if (!actual || placeNameSimilarity(expected, actual) >= 0.5) return;
+  throw new Error(`O Google retornou uma empresa diferente da ficha enviada (${actual}). A coleta foi interrompida para não gerar um diagnóstico incorreto.`);
+}
+
+function expectedPlaceName(rawUrl: string): string | undefined {
+  try {
+    const url = new URL(rawUrl);
+    const match = url.pathname.match(/\/maps\/place\/([^/]+)/i);
+    return match?.[1] ? decodeURIComponent(match[1].replace(/\+/g, " ")) : undefined;
+  } catch { return undefined; }
+}
+
+function placeNameSimilarity(left: string, right: string): number {
+  const tokens = (value: string) => new Set(value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter((token) => token.length > 2));
+  const a = tokens(left); const b = tokens(right);
+  if (!a.size || !b.size) return 1;
+  const shared = [...a].filter((token) => b.has(token)).length;
+  return (2 * shared) / (a.size + b.size);
 }
 
 const numberOrZero = (value: unknown): number => typeof value === "number" && Number.isFinite(value) ? value : 0;

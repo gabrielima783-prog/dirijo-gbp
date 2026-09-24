@@ -9,7 +9,6 @@ const priorities: FindingPriority[] = ['critical', 'important', 'opportunity', '
 const priorityLabels: Record<FindingPriority, string> = { critical: 'crítico', important: 'importante', opportunity: 'oportunidade', strength: 'ponto forte' };
 const sourceOrder: SourceKey[] = ['maps', 'reviews', 'competitors', 'website', 'pagespeed', 'instagram', 'ai'];
 type PresentationFormat = 'desktop' | 'mobile';
-const DURIJO_INSTAGRAM_URL = 'https://www.instagram.com/dirijo.br/';
 const DURIJO_WHATSAPP_URL = `https://wa.me/5527998615616?text=${encodeURIComponent('Gostei da análise, vamos agendar a call?')}`;
 
 function Brand({ compact = false }: { compact?: boolean }) {
@@ -434,14 +433,13 @@ function SlideCanvas({ slide, analysis, compact = false, format = 'desktop' }: {
     if (typeof instagramSignals.postsLast30Days === 'number') metrics.push({ value: String(instagramSignals.postsLast30Days), label: 'publicações nos últimos 30 dias' });
     if (typeof instagramSignals.postsWithCallToAction === 'number') metrics.push({ value: String(instagramSignals.postsWithCallToAction), label: 'publicações que convidam ao contato' });
   }
-  const comparisonMeta = slide.layout === 'profile' && comparisonValue ? [comparisonValue.term, comparisonValue.location, comparisonValue.observedAt ? formatDate(String(comparisonValue.observedAt)) : undefined].filter(Boolean).join(' · ') : '';
   const tone: SlideTone = toneForSlide(slide, analysis.findings);
   return <section data-slide data-format={format} class={`slide-canvas slide-canvas--${format} ${dark ? 'slide-canvas--dark' : ''} slide-canvas--${tone} layout--${slide.layout}`}>
-    <header><Brand compact/><a class="slide-handle" href={DURIJO_INSTAGRAM_URL} target="_blank" rel="noreferrer" aria-label="Abrir Instagram da Dirijo">@dirijo.br</a><span>{formatDate(analysis.updatedAt)}</span></header>
-    <div class="slide-content"><p class="eyebrow">{channelLabels[slide.layout] || 'Diagnóstico de presença digital'}</p><h1>{slide.title}</h1>{scopeOverview ? <ScopeOverview parts={scopeOverview}/> : narrative ? <Narrative parts={narrative} tone={tone}/> : <div class="slide-body">{body.map((line, i) => <p key={i}>{line}</p>)}</div>}{comparisonMeta && <div class="comparison-meta">Consulta: {comparisonMeta}</div>}{metrics.length > 0 && <div class="slide-metrics">{metrics.slice(0, 2).map(metric => <div><b>{metric.value}</b><span>{metric.label}</span></div>)}</div>}</div>
+    <header><Brand compact/><span class="slide-handle">@dirijo.br</span><span>{formatDate(analysis.updatedAt)}</span></header>
+    <div class="slide-content"><p class="eyebrow">{channelLabels[slide.layout] || 'Diagnóstico de presença digital'}</p><h1>{slide.title}</h1>{scopeOverview ? <ScopeOverview parts={scopeOverview}/> : narrative ? <Narrative parts={narrative} tone={tone}/> : <div class="slide-body">{body.map((line, i) => <p key={i}>{line}</p>)}</div>}{metrics.length > 0 && <div class="slide-metrics">{metrics.slice(0, 2).map(metric => <div><b>{metric.value}</b><span>{metric.label}</span></div>)}</div>}</div>
     {visual && <img class="evidence-visual" src={visual} alt="Evidência visual da análise"/>}
     {analysis.input.companyLogo && slide === analysis.slides[0] && <img class="client-logo" src={analysis.input.companyLogo} alt={`Logo ${analysis.companyName || 'da empresa'}`}/>} 
-    {slide.layout === 'cta' && <div class="slide-cta-links"><a class="slide-cta-link slide-cta-link--primary" href={DURIJO_WHATSAPP_URL} target="_blank" rel="noreferrer">Gostei da análise. Vamos agendar? <span>↗</span></a><a class="slide-cta-link" href={DURIJO_INSTAGRAM_URL} target="_blank" rel="noreferrer">Conhecer a Dirijo · @dirijo.br <span>↗</span></a></div>}
+    {slide.layout === 'cta' && <div class="slide-cta-links"><a class="slide-cta-link slide-cta-link--primary" href={DURIJO_WHATSAPP_URL} target="_blank" rel="noreferrer">Gostei da análise. Vamos agendar? <span>↗</span></a></div>}
     <footer><span>{analysis.companyName || 'Empresa analisada'}</span></footer>
   </section>;
 }

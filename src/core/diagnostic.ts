@@ -89,6 +89,7 @@ function observationFor(evidence: AssessedEvidence): string {
     return `No celular, o site recebeu ${score ?? 'uma medição disponível'}${typeof score === 'number' ? ' de 100' : ''}${mainContent ? ` e levou ${mainContent} para mostrar o conteúdo principal` : ''}.`;
   }
   if (category === 'website') {
+    if (value.present === false) return 'Nenhum site próprio foi informado nem encontrado no Perfil da Empresa no Google.';
     const pages = Array.isArray(value.pages) ? value.pages as Array<Record<string, unknown>> : [];
     const hasWhatsApp = pages.some((page) => page.hasWhatsApp === true) || value.whatsapp === true;
     const hasBooking = pages.some((page) => page.hasBooking === true) || value.agendamento === true;
@@ -204,6 +205,15 @@ function copyForEvidence(evidence: AssessedEvidence, category: EvidenceCategory)
   }
 
   if (category === 'website') {
+    if (value.present === false) {
+      return {
+        observation: 'A empresa não possui um site próprio informado ou conectado ao Perfil da Empresa no Google.',
+        possibleImpact: 'Quem pesquisa precisa depender apenas do Google ou do Instagram para entender os serviços. Isso reduz o controle da empresa sobre a apresentação da oferta e pode interromper o caminho até o contato.',
+        idealState: 'A empresa deveria ter uma página própria, simples e clara, com serviços, diferenciais, sinais de confiança e um caminho direto para WhatsApp ou agendamento.',
+        recommendedDirection: 'Criar uma página própria focada em apresentar os serviços e transformar a pesquisa em conversa pelo WhatsApp ou agendamento.',
+        priority: 'important',
+      };
+    }
     const pages = Array.isArray(value.pages) ? value.pages as Array<Record<string, unknown>> : [];
     const hasWhatsApp = pages.some((page) => page.hasWhatsApp === true);
     const hasBooking = pages.some((page) => page.hasBooking === true);

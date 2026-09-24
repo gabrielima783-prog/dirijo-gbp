@@ -3,7 +3,7 @@ import test from "node:test";
 import { createDatabase } from "../src/server/db.js";
 import { AnalysisRepository } from "../src/server/repository.js";
 import { AnalysisService } from "../src/server/service.js";
-import { resolveSharedGoogleMapsUrl } from "../src/server/adapters/apify.js";
+import { assertCollectedPlaceMatchesUrl, resolveSharedGoogleMapsUrl } from "../src/server/adapters/apify.js";
 
 const mainPlace = {
   title: "Clínica Horizonte",
@@ -30,7 +30,7 @@ function setup(options: { failCompetitors?: boolean; withWebsite?: boolean; with
   const repository = new AnalysisRepository(createDatabase({ filename: ":memory:" }));
   const apify = {
     async collectPlace() {
-      return { runId: "run-place", datasetId: "dataset-place", costUsd: 0.03, items: [mainPlace] };
+      return { runId: "run-place", datasetId: "dataset-place", costUsd: 0.03, items: [{ ...mainPlace, website: options.withWebsite ? mainPlace.website : undefined }] };
     },
     async collectCompetitors() {
       if (options.failCompetitors) throw new Error("Falha simulada na comparação");
@@ -83,7 +83,10 @@ test("coleta Maps completa preserva evidências, custo e rascunho local quando a
   assert.equal(result.sourceStatuses.competitors.status, "completed");
   assert.equal(result.sourceStatuses.website.status, "skipped");
   assert.equal(result.sourceStatuses.ai.status, "failed");
-  assert.equal(result.slides.length, 8);
+  assert.equal(result.slides.length, 9);
+  const missingSite = result.evidence.find((item) => item.source === "website");
+  assert.equal((missingSite?.value as { present?: boolean }).present, false);
+  assert.equal(result.findings.find((item) => item.evidenceIds.includes(missingSite?.id ?? ""))?.priority, "important");
   assert.ok(result.findings.length >= 3);
   assert.ok(result.slides.every((slide) => slide.approved));
   assert.ok(result.findings.every((finding) => finding.approved));
@@ -113,7 +116,7 @@ test("falha isolada mantém resultados parciais e entrega o material disponível
   assert.equal(result.sourceStatuses.maps.status, "completed");
   assert.equal(result.sourceStatuses.competitors.status, "failed");
   assert.ok(result.evidence.some((item) => item.source === "maps"));
-  assert.equal(result.slides.length, 8);
+  assert.equal(result.slides.length, 9);
 
   const retried = await service.retry(created.id, "competitors");
   assert.equal(retried.status, "finalized");
@@ -130,7 +133,7 @@ test("coleta o Instagram automaticamente a partir do link público", async () =>
   const instagram = result.evidence.find((item) => item.source === "instagram")?.value as { username?: string; signals?: { postsWithCallToAction?: number } };
   assert.equal(instagram.username, "clinica");
   assert.equal(instagram.signals?.postsWithCallToAction, 1);
-  assert.equal(result.slides.length, 9);
+  assert.equal(result.slides.length, 10);
   assert.ok(result.slides.some((slide) => slide.layout === "instagram"));
 });
 
@@ -159,10 +162,19 @@ test("valida link do Maps e limite de quatro capturas do Instagram", () => {
   );
 });
 
-test("converte share.google em uma busca válida do Google Maps", async () => {
+test("converte share.google preservando a ficha exata do Google Maps", async () => {
   const resolved = await resolveSharedGoogleMapsUrl("https://share.google/8BAUNFPRrDDC1MXoS", async () => new Response(
-    '<a href="/search?q=Aline+Almeida+Consultoria+Imobili%C3%A1ria&amp;hl=pt-BR">abrir</a>',
+    '<a href="https://www.google.com/maps/place/Aline+Almeida+Consultoria+Imobili%C3%A1ria/data=!4m2!3m1!1s0x0:0x123?sa=X&amp;hl=pt-BR">abrir</a>',
     { status: 200, headers: { "content-type": "text/html" } },
   ));
-  assert.equal(resolved, "https://www.google.com/maps/search/?api=1&query=Aline+Almeida+Consultoria+Imobili%C3%A1ria");
+  assert.equal(resolved, "https://www.google.com/maps/place/Aline+Almeida+Consultoria+Imobili%C3%A1ria/data=!4m2!3m1!1s0x0:0x123?sa=X&hl=pt-BR");
+});
+
+test("interrompe a coleta quando o Google devolve uma empresa diferente", () => {
+  const exactUrl = "https://www.google.com/maps/place/Lumina+Est%C3%A9tica,+Sa%C3%BAde+e+Bem-estar/data=!4m2!3m1!1s0x0:0x123";
+  assert.doesNotThrow(() => assertCollectedPlaceMatchesUrl({ title: "Lumina Estética, Saúde e Bem-estar" }, exactUrl));
+  assert.throws(
+    () => assertCollectedPlaceMatchesUrl({ title: "Lumina Aesthetic & Wellness" }, exactUrl),
+    /empresa diferente/,
+  );
 });

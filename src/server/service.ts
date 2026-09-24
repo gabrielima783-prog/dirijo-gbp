@@ -159,8 +159,8 @@ export class AnalysisService {
     if (source === "reviews") {
       if (!this.deps.apify) throw new Error("Apify não configurada.");
       const primary = this.profile(id) as PlaceSnapshot & { recentReviews?: PlaceSnapshot["reviews"] };
-      const negative = await this.deps.apify.collectPlace(input.mapsUrl, "lowestRanking", 20);
-      const low = normalizePlace(negative.items[0], input.mapsUrl);
+      const negative = await this.deps.apify.collectPlace(primary.sourceUrl, "lowestRanking", 20);
+      const low = normalizePlace(negative.items[0], primary.sourceUrl);
       const reviews = dedupeReviews([...(primary.recentReviews ?? []), ...low.reviews]).slice(0, 100);
       this.deps.repository.replaceEvidence(id, "reviews", [evidence("reviews", "O que as avaliações revelam antes do contato", { ...summarizeReviews(reviews), reviews, distribution: primary.reviewsDistribution }, primary.sourceUrl, observedAt, 0.95)]);
       this.deps.repository.addCost(id, "reviews", negative.costUsd, reviews.length, { runIds: [negative.runId] });
@@ -180,8 +180,17 @@ export class AnalysisService {
       return;
     }
     if (source === "website") {
-      const websiteUrl = input.websiteUrl?.trim();
-      if (!websiteUrl || !this.deps.website) throw new Error("Site ou auditor não configurado.");
+      const websiteUrl = this.websiteUrlFor(id, input);
+      if (!websiteUrl) {
+        this.deps.repository.replaceEvidence(id, "website", [{
+          ...evidence("website", "Ausência de site próprio", { present: false, reason: "Nenhum site foi informado nem encontrado no Perfil da Empresa no Google." }, undefined, observedAt, 0.98),
+          category: "website", assessment: "negative", impact: "high",
+          recommendation: "Criar uma página própria que apresente os serviços, reforce a confiança e conduza até o WhatsApp ou agendamento.",
+        }]);
+        this.deps.repository.setSource(id, "website", "skipped", "Nenhum site público foi informado ou encontrado.");
+        return;
+      }
+      if (!this.deps.website) throw new Error("Auditor de site não configurado.");
       const audit = await this.deps.website.audit(websiteUrl);
       const place = this.profile(id);
       const visibleText = audit.pages.map((page) => page.visibleText ?? "").join(" ");
@@ -195,7 +204,7 @@ export class AnalysisService {
       this.deps.repository.setSource(id, "website", "completed"); return;
     }
     if (source === "pagespeed") {
-      const websiteUrl = input.websiteUrl?.trim();
+      const websiteUrl = this.websiteUrlFor(id, input);
       if (!websiteUrl || !this.deps.pageSpeed) throw new Error("PageSpeed não configurado.");
       const result = await this.deps.pageSpeed.inspect(websiteUrl);
       this.deps.repository.replaceEvidence(id, "pagespeed", [evidence("pagespeed", "Desempenho mobile", result, websiteUrl, observedAt, 0.9)]);
@@ -251,12 +260,17 @@ export class AnalysisService {
     if (!value || typeof value !== "object") throw new Error("Perfil principal ainda não coletado.");
     return value as PlaceSnapshot;
   }
-  private isRelevant(_id: string, source: SourceName, input: AnalysisInput): boolean {
-    if (source === "website") return Boolean(this.deps.website && input.websiteUrl);
-    if (source === "pagespeed") return Boolean(this.deps.pageSpeed && input.websiteUrl);
+  private isRelevant(id: string, source: SourceName, input: AnalysisInput): boolean {
+    if (source === "website") return true;
+    if (source === "pagespeed") return Boolean(this.deps.pageSpeed && this.websiteUrlFor(id, input));
     if (source === "instagram") return Boolean(input.instagramUrl || input.instagramChecklist || input.instagramScreenshots?.length);
     if (source === "operator") return Boolean(input.contactName || input.companyName);
     return true;
+  }
+  private websiteUrlFor(id: string, input: AnalysisInput): string | undefined {
+    const informed = input.websiteUrl?.trim();
+    if (informed) return informed;
+    try { return this.profile(id).website?.trim(); } catch { return undefined; }
   }
   private generateLocalDraft(id: string, input: AnalysisInput): void {
     const current = this.require(id);

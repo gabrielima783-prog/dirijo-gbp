@@ -64,6 +64,11 @@ function briefFacts(evidence: Evidence): { facts: unknown; representativeExample
   }
 
   if (evidence.source === 'website') {
+    if (value.present === false) return { facts: {
+      'possui site próprio': false,
+      motivo: value.reason,
+      'direção sugerida': evidence.recommendation,
+    } };
     const pages = Array.isArray(value.pages) ? value.pages.slice(0, 5).map((page) => {
       const item = record(page) ?? {};
       return {
@@ -166,7 +171,7 @@ function crossChannelSignals(evidence: Evidence[]): AIDiagnosticBrief['crossChan
   const websiteValue = record(website?.value);
   const instagramValue = record(instagram?.value);
   const nap = record(websiteValue?.napConsistency);
-  if (profile && website && nap) {
+  if (profile && website && websiteValue?.present !== false && nap) {
     result.push({
       label: 'Consistência entre Google e site',
       detail: `Nome no site: ${nap.nameFound === true ? 'encontrado' : nap.nameFound === false ? 'não encontrado' : 'não validado'}; endereço: ${nap.addressFound === true ? 'encontrado' : nap.addressFound === false ? 'não encontrado' : 'não validado'}; telefone: ${nap.phoneFound === true ? 'encontrado' : nap.phoneFound === false ? 'não encontrado' : 'não validado'}.`,

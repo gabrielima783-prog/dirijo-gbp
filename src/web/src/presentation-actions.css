@@ -29,7 +29,7 @@
   position: absolute;
   left: 5.2%;
   right: 5.2%;
-  bottom: 5.6%;
+  bottom: 9.5%;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -79,7 +79,7 @@
 .slide-canvas--mobile .slide-cta-links {
   left: 7%;
   right: 7%;
-  bottom: 5.5%;
+  bottom: 9%;
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;

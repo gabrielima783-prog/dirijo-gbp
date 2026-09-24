@@ -52,6 +52,11 @@ function context(input: AnalysisInput): DiagnosticContext {
       assessment: 'positive',
     }),
   );
+  else items.push(
+    evidence('ev-site-missing', 'website', 'Ausência de site próprio', { present: false }, {
+      category: 'website', assessment: 'negative', impact: 'high',
+    }),
+  );
   if (input.instagramUrl) items.push(
     evidence('ev-instagram', 'instagram', 'Bio e chamada para ação', 'Serviço principal claro, sem link direto para agendamento', {
       category: 'instagram',
@@ -66,7 +71,7 @@ function context(input: AnalysisInput): DiagnosticContext {
   };
 }
 
-test('gera 8 slides com Maps, prioridades e CTA final', () => {
+test('gera 9 slides e mostra a ausência de site como correção prioritária', () => {
   const result = createDiagnostic(
     context({
       mapsUrl: 'https://www.google.com/maps/place/clinica',
@@ -74,7 +79,10 @@ test('gera 8 slides com Maps, prioridades e CTA final', () => {
     }),
   );
 
-  assert.equal(result.presentation.slides.length, 8);
+  assert.equal(result.presentation.slides.length, 9);
+  const websiteSlide = result.presentation.slides.find((slide) => slide.layout === 'website');
+  assert.match(websiteSlide?.body ?? '', /não possui um site próprio/i);
+  assert.equal(result.findings.find((finding) => finding.evidenceIds.includes('ev-site-missing'))?.priority, 'important');
   assert.equal(result.presentation.slides[0]?.layout, 'cover');
   assert.match(result.presentation.slides[1]?.title ?? '', /caminho que um cliente percorre/i);
   assert.match(result.presentation.slides[1]?.body ?? '', /Verde[\s\S]*Amarelo[\s\S]*Vermelho/i);
