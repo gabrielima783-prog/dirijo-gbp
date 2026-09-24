@@ -72,6 +72,12 @@ function History({ go }: { go: (p: string) => void }) {
   const [error, setError] = useState('');
   useEffect(() => { api.list().then(setItems).catch(e => setError(e.message)).finally(() => setLoading(false)); }, []);
   const duplicate = async (id: string) => { const item = await api.duplicate(id); go(`/analises/${item.id}`); };
+  const remove = async (item: Analysis) => {
+    const name = item.companyName || 'esta análise';
+    if (!confirm(`Excluir definitivamente ${name}?`)) return;
+    try { await api.remove(item.id); setItems(current => current.filter(candidate => candidate.id !== item.id)); }
+    catch (cause) { setError((cause as Error).message); }
+  };
   return <Shell go={go} active="history">
     <section class="page-intro">
       <div><p class="eyebrow">Mesa de diagnóstico</p><h1>O que merece ser <em>visto.</em></h1></div>
@@ -90,7 +96,7 @@ function History({ go }: { go: (p: string) => void }) {
           <span class="ledger-meta"><b>{formatDate(item.updatedAt)}</b><small>{money(item.actualCostUsd ?? item.estimatedCostUsd)}</small></span>
           <span class="arrow">→</span>
         </button>
-        <button class="quiet-action" onClick={() => duplicate(item.id)}>Duplicar</button>
+        <div class="ledger-actions"><button class="quiet-action" onClick={() => duplicate(item.id)}>Duplicar</button><button class="quiet-action quiet-action--danger" onClick={() => remove(item)}>Excluir</button></div>
       </article>})}
     </section>
   </Shell>;

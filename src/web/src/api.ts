@@ -11,6 +11,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const payload = await response.json().catch(() => null) as { error?: string; message?: string } | null;
     throw new Error(payload?.message || payload?.error || `A solicitação falhou (${response.status}).`);
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -28,5 +29,6 @@ export const api = {
   updateSlides: (id: string, slides: SlideSpec[]) => request<Analysis>(`/analyses/${id}/slides`, { method: 'PUT', body: JSON.stringify({ slides }) }),
   finalize: (id: string) => request<Analysis>(`/analyses/${id}/finalize`, { method: 'POST' }),
   duplicate: (id: string) => request<Analysis>(`/analyses/${id}/duplicate`, { method: 'POST' }),
+  remove: (id: string) => request<void>(`/analyses/${id}`, { method: 'DELETE' }),
   regenerateSlide: (id: string, slideId: string) => request<Analysis>(`/analyses/${id}/slides/${slideId}/regenerate`, { method: 'POST' }),
 };

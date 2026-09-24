@@ -5,6 +5,7 @@ import test from 'node:test';
 
 const root = process.cwd();
 const app = readFileSync(join(root, 'src/web/src/App.tsx'), 'utf8');
+const api = readFileSync(join(root, 'src/web/src/api.ts'), 'utf8');
 const types = readFileSync(join(root, 'src/web/src/types.ts'), 'utf8');
 const styles = readFileSync(join(root, 'src/web/src/styles.css'), 'utf8');
 const mobileStyles = readFileSync(join(root, 'src/web/src/mobile-presentation.css'), 'utf8');
@@ -94,4 +95,11 @@ test('painel possui configurações visuais com credenciais protegidas', () => {
   assert.match(app, /openaiApiKey/);
   assert.match(app, /pageSpeedApiKey/);
   assert.match(settingsStyles, /integration-card/);
+});
+
+test('histórico permite excluir uma análise com confirmação', () => {
+  assert.match(api, /method: 'DELETE'/);
+  assert.match(app, /Excluir definitivamente/);
+  assert.match(app, />Excluir</);
+  assert.match(styles, /quiet-action--danger/);
 });

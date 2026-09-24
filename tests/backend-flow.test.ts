@@ -4,6 +4,7 @@ import { createDatabase } from "../src/server/db.js";
 import { AnalysisRepository } from "../src/server/repository.js";
 import { AnalysisService } from "../src/server/service.js";
 import { assertCollectedPlaceMatchesUrl, resolveSharedGoogleMapsUrl } from "../src/server/adapters/apify.js";
+import { pdfDownloadFilename } from "../src/server/app.js";
 
 const mainPlace = {
   title: "Clínica Horizonte",
@@ -150,6 +151,19 @@ test("material nasce aprovado e continua editável depois da finalização autom
   assert.match(service.get(created.id).findings[0]?.observation ?? "", /Correção opcional/);
   assert.deepEqual(new Set(repository.versions(created.id).map((version) => version.kind)), new Set(["created", "findings", "slides", "finalized"]));
   assert.throws(() => repository.replaceSlides(created.id, collected.slides.slice(0, 7)), /8 e 10 slides/);
+});
+
+test("exclui uma análise e todos os seus dados relacionados", () => {
+  const { repository, service } = setup();
+  const created = service.create({ mapsUrl: "https://maps.google.com/?cid=123" });
+  assert.equal(repository.delete(created.id), true);
+  assert.equal(repository.get(created.id), undefined);
+  assert.equal(repository.delete(created.id), false);
+});
+
+test("nome do PDF usa empresa, data e identifica somente a versão celular", () => {
+  assert.equal(pdfDownloadFilename("Lumina Estética, Saúde e Bem-estar", "2026-09-24T14:00:00.000Z", "desktop"), "LuminaEsteticaSaudeEBemEstar-24-09-26.pdf");
+  assert.equal(pdfDownloadFilename("Lumina Estética, Saúde e Bem-estar", "2026-09-24T14:00:00.000Z", "mobile"), "LuminaEsteticaSaudeEBemEstar-24-09-26-Celular.pdf");
 });
 
 test("valida link do Maps e limite de quatro capturas do Instagram", () => {

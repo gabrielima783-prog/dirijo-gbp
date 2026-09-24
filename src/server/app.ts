@@ -51,6 +51,12 @@ export function createApp(deps: AppDependencies): Hono {
   app.post("/api/analyses/:id/duplicate", (c) => {
     const result = deps.repository.duplicate(c.req.param("id")); if (!result) throw new NotFoundError(); return c.json(result, 201);
   });
+  app.delete("/api/analyses/:id", (c) => {
+    const id = c.req.param("id");
+    if (deps.service.isRunning(id)) throw new Error("Aguarde a coleta terminar antes de excluir esta análise.");
+    if (!deps.repository.delete(id)) throw new NotFoundError();
+    return c.body(null, 204);
+  });
   app.get("/api/analyses/:id/cost-estimate", (c) => { const analysis = deps.service.get(c.req.param("id")); return c.json({ ...deps.service.estimate(analysis.input), estimatedCostUsd: analysis.estimatedCostUsd }); });
   app.post("/api/analyses/:id/collect", async (c) => {
     const id = c.req.param("id"); const analysis = deps.service.get(id); const body = await optionalJson<{ confirmOverBudget?: boolean; confirmOverCap?: boolean }>(c);
@@ -76,10 +82,17 @@ export function createApp(deps: AppDependencies): Hono {
     const format=c.req.query("format") === "mobile" ? "mobile" : "desktop";
     const outputDir=join(process.cwd(),"data","exports"); mkdirSync(outputDir,{recursive:true}); const path=join(outputDir,`${analysis.id}-${format}.pdf`);
     await exportAnalysisPdf({analysisId:analysis.id,outputPath:path,format,baseUrl:deps.baseUrl??`http://${deps.config.host}:${deps.config.port}`,expectedSlideCount:analysis.slides.length});
-    const suffix=format === "mobile" ? "mobile-9x16" : "apresentacao-16x9";
-    const bytes=readFileSync(path); c.header("content-type","application/pdf"); c.header("content-disposition",`attachment; filename=\"dirijo-gbp-${analysis.id.slice(0,8)}-${suffix}.pdf\"`); return c.body(bytes);
+    const bytes=readFileSync(path); c.header("content-type","application/pdf"); c.header("content-disposition",`attachment; filename=\"${pdfDownloadFilename(analysis.companyName,analysis.finalizedAt??analysis.updatedAt,format)}\"`); return c.body(bytes);
   });
   return app;
+}
+
+export function pdfDownloadFilename(companyName: string | undefined, dateValue: string, format: "desktop" | "mobile"): string {
+  const words = (companyName || "Dirijo GBP").normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[A-Za-z0-9]+/g) ?? ["Dirijo", "GBP"];
+  const safeName = words.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join("");
+  const date = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "2-digit" })
+    .format(new Date(dateValue)).replace(/\//g, "-");
+  return `${safeName}-${date}${format === "mobile" ? "-Celular" : ""}.pdf`;
 }
 
 const VALID_SOURCES = new Set<SourceName>(["maps","reviews","competitors","website","pagespeed","instagram","operator","ai"]);

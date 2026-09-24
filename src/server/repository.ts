@@ -83,6 +83,10 @@ export class AnalysisRepository {
     return original ? this.create(original.input, original.estimatedCostUsd, original.costLimitUsd) : undefined;
   }
 
+  delete(id: string): boolean {
+    return Number(this.db.prepare("DELETE FROM analyses WHERE id=?").run(id).changes) > 0;
+  }
+
   setStatus(id: string, status: AnalysisStatus): void {
     const now = new Date().toISOString();
     this.db.prepare("UPDATE analyses SET status=?, updated_at=?, finalized_at=? WHERE id=?")
