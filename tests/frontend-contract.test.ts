@@ -8,6 +8,7 @@ const app = readFileSync(join(root, 'src/web/src/App.tsx'), 'utf8');
 const types = readFileSync(join(root, 'src/web/src/types.ts'), 'utf8');
 const styles = readFileSync(join(root, 'src/web/src/styles.css'), 'utf8');
 const mobileStyles = readFileSync(join(root, 'src/web/src/mobile-presentation.css'), 'utf8');
+const presentationActionsStyles = readFileSync(join(root, 'src/web/src/presentation-actions.css'), 'utf8');
 const settingsStyles = readFileSync(join(root, 'src/web/src/settings.css'), 'utf8');
 
 test('frontend mantém o contrato público da API', () => {
@@ -73,6 +74,15 @@ test('página de abertura explica canais e legenda sem antecipar conclusões', (
   assert.match(styles, /scope-legend-item--positive/);
   assert.match(styles, /scope-legend-item--attention/);
   assert.match(styles, /scope-legend-item--problem/);
+});
+
+test('apresentação exibe Instagram da Dirijo e CTA clicável de WhatsApp', () => {
+  assert.match(app, /@dirijo\.br/);
+  assert.match(app, /5527998615616/);
+  assert.match(app, /Gostei da análise\. Vamos agendar\?/);
+  assert.match(app, /slide-cta-links/);
+  assert.match(presentationActionsStyles, /slide-handle/);
+  assert.match(presentationActionsStyles, /slide-cta-link--primary/);
 });
 
 test('painel possui configurações visuais com credenciais protegidas', () => {
