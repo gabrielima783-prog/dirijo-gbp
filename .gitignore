@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-web/
+.env
+.env.local
+data/*
+!data/.gitkeep
+output/
+playwright-report/
+test-results/
+tmp/
+.DS_Store
+*.log

@@ -1,0 +1,36 @@
+{
+  "name": "dirijo-gbp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <27"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,yellow \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch src/server/index.ts",
+    "dev:web": "vite --host 127.0.0.1",
+    "build": "tsc -p tsconfig.server.json && vite build",
+    "start": "node scripts/start.mjs",
+    "demo:seed": "tsx scripts/seed-demo.ts",
+    "export:distribution": "node scripts/exportar-distribuicao.mjs",
+    "check:openai": "tsx scripts/check-openai.ts",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "check": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "hono": "4.13.8",
+    "playwright": "1.63.0",
+    "preact": "10.29.8",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "2.10.6",
+    "@types/node": "26.6.2",
+    "concurrently": "10.0.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.2",
+    "vite": "8.3.0"
+  }
+}

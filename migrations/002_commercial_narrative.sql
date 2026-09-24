@@ -1,0 +1,1 @@
+ALTER TABLE findings ADD COLUMN ideal_state TEXT NOT NULL DEFAULT '';
