@@ -140,6 +140,8 @@ export interface PlaceSnapshot {
   categories: string[];
   address?: string | undefined;
   city?: string | undefined;
+  state?: string | undefined;
+  countryCode?: string | undefined;
   phone?: string | undefined;
   website?: string | undefined;
   description?: string | undefined;

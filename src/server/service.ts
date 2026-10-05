@@ -204,8 +204,17 @@ export class AnalysisService {
       const place = this.profile(id);
       const category = place.category ?? place.categories[0]; const location = place.city ?? place.address;
       if (!category || !location) throw new Error("Categoria ou cidade não disponível para comparação.");
-      const result = await this.deps.apify.collectCompetitors(category, location);
-      const competitors = result.items.map((item) => normalizePlace(item, input.mapsUrl!)).filter((item) => item.title !== place.title).slice(0, 5).map(safeCompetitor);
+      const countryCode = place.countryCode ?? "BR";
+      const state = place.state ?? place.address?.match(/\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/)?.[1];
+      const result = await this.deps.apify.collectCompetitors(category, location, { city: place.city, state, countryCode });
+      const fold = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+      const competitors = result.items.map((item) => normalizePlace(item, input.mapsUrl!)).filter((item) =>
+        item.title !== place.title && Boolean(item.city) && Boolean(item.countryCode)
+        && fold(item.countryCode!) === fold(countryCode)
+        && (!place.city || fold(item.city!) === fold(place.city))
+        && (!state || !item.state || fold(item.state) === fold(state) || item.address?.includes(`- ${state}`))
+      ).slice(0, 5).map(safeCompetitor);
+      if (!competitors.length) throw new Error("A busca não retornou negócios semelhantes na região confirmada. Confira a categoria e a localização antes de tentar novamente.");
       this.deps.repository.replaceEvidence(id, "competitors", [evidence("competitors", "Retrato comparativo local", { term: category, location, observedAt, competitors }, input.mapsUrl, observedAt, 0.85)]);
       this.deps.repository.addCost(id, "competitors", result.costUsd, competitors.length, { runId: result.runId });
       this.deps.repository.setSource(id, "competitors", "completed", undefined, { runId: result.runId, term: category, location }, result.runId);

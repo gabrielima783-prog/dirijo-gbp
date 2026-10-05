@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ApifyClient, type FetchLike } from "../src/server/adapters/apify.js";
+import { ApifyClient, normalizePlace, type FetchLike } from "../src/server/adapters/apify.js";
 
 function setup(read: () => Response | Promise<Response>) {
   let starts = 0;
@@ -42,4 +42,24 @@ test("truncated JSON retries the read", async () => {
   const { client, counts } = setup(() => ++attempt === 1 ? new Response("[") : Response.json([]));
   assert.deepEqual((await client.run({})).items, []);
   assert.deepEqual(counts(), { starts: 1, reads: 2 });
+});
+
+test("competitor lookup disambiguates Vitória with country and state", async () => {
+  let input: Record<string, unknown> = {};
+  const fetch: FetchLike = async (_url, init) => {
+    if (init?.method === "POST") {
+      input = JSON.parse(String(init.body));
+      return Response.json({ data: { id: "run", status: "SUCCEEDED", defaultDatasetId: "dataset" } });
+    }
+    return Response.json([]);
+  };
+  const client = new ApifyClient({ token: "test-placeholder", fetch });
+  await client.collectCompetitors("Clínica", "Vitória", { city: "Vitória", state: "ES", countryCode: "BR" });
+  assert.equal(input.countryCode, "br");
+  assert.equal(input.city, "Vitória");
+  assert.equal(input.state, "ES");
+  assert.equal(input.locationQuery, undefined);
+  const place = normalizePlace({ title: "Example", city: "Vitória", state: "ES", countryCode: "BR" }, "https://maps.google.com/");
+  assert.equal(place.countryCode, "BR");
+  assert.equal(place.state, "ES");
 });

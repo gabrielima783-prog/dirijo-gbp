@@ -100,9 +100,10 @@ export class ApifyClient {
     return result;
   }
 
-  async collectCompetitors(category: string, location: string): Promise<ApifyRunResult> {
+  async collectCompetitors(category: string, location: string, region?: { city?: string | undefined; state?: string | undefined; countryCode?: string | undefined }): Promise<ApifyRunResult> {
     return this.run({
-      searchStringsArray: [category], locationQuery: location, language: "pt-BR",
+      searchStringsArray: [category], language: "pt-BR",
+      ...(region?.city ? { city: region.city, state: region.state, countryCode: (region.countryCode ?? "BR").toLowerCase() } : { locationQuery: `${location}, Brasil` }),
       maxCrawledPlacesPerSearch: 6, scrapePlaceDetailPage: true, maxReviews: 3,
       reviewsSort: "newest", reviewsOrigin: "google", scrapeReviewsPersonalData: false,
       maxImages: 0, scrapeImageAuthors: false, skipClosedPlaces: true,
@@ -231,12 +232,12 @@ export function normalizePlace(input: unknown, sourceUrl: string): PlaceSnapshot
   const categories = (Array.isArray(item.categories) ? item.categories : []).filter((entry): entry is string => typeof entry === "string");
   const address = string(item.address ?? item.street);
   const city = string(item.city) ?? inferCity(address);
-  const safeKeys = ["title", "categoryName", "categories", "address", "city", "phone", "website", "totalScore", "reviewsCount", "openingHours", "reviewsDistribution", "additionalInfo", "ownerUpdates", "questionsAndAnswers"];
+  const safeKeys = ["title", "categoryName", "categories", "address", "city", "state", "countryCode", "phone", "website", "totalScore", "reviewsCount", "openingHours", "reviewsDistribution", "additionalInfo", "ownerUpdates", "questionsAndAnswers"];
   const rawSafe = Object.fromEntries(safeKeys.filter((key) => item[key] !== undefined).map((key) => [key, item[key]]));
   return {
     title: string(item.title ?? item.name) ?? "Empresa analisada",
     category: string(item.categoryName ?? item.category), categories,
-    address, city, phone: string(item.phone), website: string(item.website),
+    address, city, state: string(item.state), countryCode: string(item.countryCode), phone: string(item.phone), website: string(item.website),
     description: string(item.description), openingHours: item.openingHours,
     totalScore: numberOrZero(item.totalScore ?? item.rating) || undefined,
     reviewsCount: numberOrZero(item.reviewsCount ?? item.reviews) || undefined,
