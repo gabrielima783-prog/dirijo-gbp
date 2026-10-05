@@ -12,6 +12,8 @@ const mainPlace = {
   categories: ["Clínica odontológica"],
   address: "Rua Exemplo, 10, Vila Velha - ES",
   city: "Vila Velha",
+  state: "ES",
+  countryCode: "BR",
   phone: "+55 27 99999-9999",
   website: "https://example.com",
   totalScore: 4.6,
@@ -27,7 +29,7 @@ const mainPlace = {
   url: "https://maps.google.com/?cid=123",
 };
 
-function setup(options: { failCompetitors?: boolean; withWebsite?: boolean; withInstagram?: boolean } = {}) {
+function setup(options: { failCompetitors?: boolean; foreignCompetitors?: boolean; withWebsite?: boolean; withInstagram?: boolean } = {}) {
   const repository = new AnalysisRepository(createDatabase({ filename: ":memory:" }));
   const apify = {
     async collectPlace() {
@@ -39,7 +41,7 @@ function setup(options: { failCompetitors?: boolean; withWebsite?: boolean; with
         runId: "run-competitors",
         datasetId: "dataset-competitors",
         costUsd: 0.04,
-        items: [
+        items: options.foreignCompetitors ? [{ ...mainPlace, title: "Foreign result", city: "Brighton", state: "Victoria", countryCode: "AU" }] : [
           mainPlace,
           { ...mainPlace, title: "Sorriso Local", totalScore: 4.8, reviewsCount: 130 },
           { ...mainPlace, title: "Odonto Praia", totalScore: 4.5, reviewsCount: 55 },
@@ -71,6 +73,16 @@ function setup(options: { failCompetitors?: boolean; withWebsite?: boolean; with
   const service = new AnalysisService({ repository, apify: apify as never, instagram: instagram as never, website: website as never, pageSpeed: pageSpeed as never, costLimitUsd: 1 });
   return { repository, service };
 }
+
+test("não conclui Cenário local com resultados de outro país", async () => {
+  const { service } = setup({ foreignCompetitors: true });
+  const created = service.create({ mapsUrl: "https://maps.google.com/?cid=123" });
+  const result = await service.collect(created.id);
+  assert.equal(result.sourceStatuses.competitors.status, "failed");
+  assert.match(result.sourceStatuses.competitors.error ?? "", /região confirmada/);
+  assert.equal(result.evidence.some((item) => item.source === "competitors"), false);
+  assert.equal(result.sourceStatuses.maps.status, "completed");
+});
 
 test("coleta Maps completa preserva evidências, custo e rascunho local quando a IA está indisponível", async () => {
   const { service } = setup();

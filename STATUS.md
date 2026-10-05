@@ -31,3 +31,11 @@ Diagnóstico real de validação gerado pelo operador em 05/10: Homenz Vila Velh
 Conferência final: administrador e operador autenticam com as senhas iniciais, ambos obrigados a trocar a senha antes de acessar o histórico. Backup manual adicional, após a geração e a revogação das sessões de validação, terminou com `Result=success`; timer permanece ativo.
 
 Runbook: `infra/VPS-RUNBOOK.md`.
+
+
+## Correção de leitura Apify preparada, 05/10/2026
+
+- Diagnóstico Face Doctor Praia do Canto apresentou HTTP 502 ao ler o dataset do Cenário local. Demais fontes preservadas.
+- Adaptador agora tenta até quatro leituras do mesmo dataset para HTTP 429/5xx, falhas de conexão e resposta inválida, com espera progressiva e timeout por tentativa. POST de criação do ator não é repetido pela recuperação da leitura.
+- Build e git diff --check aprovados. Testes e publicação ainda não executados; aguardam autorização. Release de produção permanece `146ca31350504c66f39f968091ec4d273b62ecc0`.
+- Diagnóstico existente ainda precisa ser recuperado, preferencialmente reutilizando o dataset já pago.
