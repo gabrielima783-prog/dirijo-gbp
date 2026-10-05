@@ -25,3 +25,7 @@ Helper usa SQLite Online Backup, copia os arquivos e as configurações cifradas
 Para testar recuperação, montar a mesma imagem com `backups/` e o secret R2 e executar `node infra/backup.mjs decrypt /backups/<arquivo>.enc /backups/restauracao.tar.gz`. Extrair somente em diretório temporário, abrir SQLite readOnly, validar integridade e contagem. Apagar o arquivo de recuperação descriptografado após a conferência. Para restauração efetiva, parar apenas app da stack GBP, preservar os dados correntes, substituir dados pelo snapshot e reiniciar.
 
 Atualizações preservam backup antes da promoção; rollback binário usa exclusivamente executor e previous. No primeiro deploy, sem previous, retirar somente a nova publicação e preservar dados e backups; versão local continua acessível. Não usar prune, apagar volume ou limpar serviços vizinhos.
+
+## Escopo de coleta vigente, 05/10/2026
+
+A coleta analisa somente a empresa informada: Google e avaliações pelo link, site/PageSpeed quando disponíveis e Instagram. Concorrentes e Cenário local foram removidos. Preservar custos/dados históricos; eles ficam fora das leituras atuais e da síntese. Não executar nova coleta de concorrentes para recuperar diagnósticos antigos.

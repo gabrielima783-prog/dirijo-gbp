@@ -6,7 +6,7 @@ Atualizado em 05/10/2026.
 
 Publicado em https://gbp.viradadonutri.com.br, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local 3006. Banco, arquivos, credenciais e backups separados dos demais projetos.
 
-Release em produção: `146ca31350504c66f39f968091ec4d273b62ecc0`, pacote SHA-256 `9f44e43ac293332d20d12e81cf870ecf546b29a288bc681456a0d7aaf60493c5`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `0915d49dc5a3b1684db2a9b2d3831485eff3b08f`. Rollback binário disponível pelo executor. Nenhum prune ou limpeza de outras stacks foi executado.
+Release em produção: `baff700e0c4b21361966f2f445ef3c2db06b3ce7`, pacote SHA-256 `1418099154bfea21116f6806ba7a839443edc63578d7d8767e27bdf94ced7271`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `07ce088d5893f5698a395bdc812410c8c1f15e87`. Rollback binário disponível pelo executor. Limpeza automática do executor preservou releases protegidas, banco, arquivos e backups.
 
 Health interno e externo passaram. Dirijo Ops, Dirijo Flow, Dirijo Content e Assistente Pessoal continuaram retornando 200 depois da publicação. Disco após deploy: 20% livre, 20.801.308 KiB disponíveis, 89% de inodes livres.
 
@@ -50,7 +50,10 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Executor aplicou sua política automática de limpeza, preservando releases protegidas, dados e backups. Espaço após publicação: 20%, 20.443.880 KiB.
 
 
-## Remoção da comparação local, em publicação 05/10/2026
+## Remoção da comparação local, publicada em 05/10/2026
 
 - Proprietário determinou retirar concorrentes e publicar em produção. Coleta, estimativa de custo, opção de nova tentativa e linha Cenário local removidas do fluxo ativo.
 - Evidências antigas de concorrentes e achados/slides vinculados ficam fora da leitura ativa e da síntese; armazenamento e custos históricos preservados. Não será disparada nova coleta paga para recuperar Face Doctor.
+
+- Produção publicada no SHA `baff700e0c4b21361966f2f445ef3c2db06b3ce7` (PR 2), checksum `1418099154bfea21116f6806ba7a839443edc63578d7d8767e27bdf94ced7271`. Build e 56 testes passaram, incluindo bloqueio da coleta/nova tentativa e exclusão das evidências legadas da síntese.
+- Backup cifrado realizado antes da promoção. Health interno, HTTPS público e vizinhos Ops, Flow, Threads e Assistente Pessoal aprovados. Status confirmou current/previous acima; 20% de disco livre, 20.338.996 KiB. Nenhuma nova chamada paga de coleta foi disparada.
