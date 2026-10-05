@@ -30,8 +30,8 @@ test('exportador encontra apresentação pronta e slides 16:9', () => {
 
 test('todas as análises podem ser exportadas em apresentação mobile 9:16', () => {
   assert.match(app, /format=mobile/);
-  assert.match(app, /PDF para celular 9:16/);
-  assert.match(app, /PDF celular 9:16/);
+  assert.match(app, /PDF · 2 páginas/);
+  assert.match(app, /Baixar PDF completo 9:16/);
   assert.match(app, /slide-canvas--\$\{format\}/);
   assert.match(mobileStyles, /aspect-ratio:\s*9\s*\/\s*16/);
   assert.match(mobileStyles, /1080px/);
