@@ -135,7 +135,7 @@ export function pdfDownloadFilename(companyName: string | undefined, dateValue: 
   return `${safeName}-${date}${format === "mobile" ? "-Celular" : ""}.pdf`;
 }
 
-const VALID_SOURCES = new Set<SourceName>(["maps","reviews","competitors","website","pagespeed","instagram","operator","ai"]);
+const VALID_SOURCES = new Set<SourceName>(["maps","reviews","website","pagespeed","instagram","operator","ai"]);
 const VALID_SETTINGS_PROVIDERS = new Set<SettingsProvider>(["apify", "openai", "pagespeed"]);
 async function readJson<T>(c: Context): Promise<T> { try { return await c.req.json<T>(); } catch { throw new Error("Corpo JSON inválido."); } }
 async function optionalJson<T>(c: Context): Promise<Partial<T>> { const contentType=c.req.header("content-type")??""; if(!contentType.includes("application/json"))return{}; try{return await c.req.json<Partial<T>>();}catch{return{};} }

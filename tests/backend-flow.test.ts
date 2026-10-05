@@ -74,14 +74,14 @@ function setup(options: { failCompetitors?: boolean; foreignCompetitors?: boolea
   return { repository, service };
 }
 
-test("não conclui Cenário local com resultados de outro país", async () => {
-  const { service } = setup({ foreignCompetitors: true });
+test("não coleta concorrentes e bloqueia nova tentativa dessa fonte", async () => {
+  const { service } = setup({ failCompetitors: true });
   const created = service.create({ mapsUrl: "https://maps.google.com/?cid=123" });
+  assert.equal(service.estimate(created.input).breakdown.competitors, undefined);
   const result = await service.collect(created.id);
-  assert.equal(result.sourceStatuses.competitors.status, "failed");
-  assert.match(result.sourceStatuses.competitors.error ?? "", /região confirmada/);
-  assert.equal(result.evidence.some((item) => item.source === "competitors"), false);
-  assert.equal(result.sourceStatuses.maps.status, "completed");
+  assert.equal(result.sourceStatuses.competitors.status, "skipped");
+  assert.equal(result.evidence.some(item => item.source === "competitors"), false);
+  await assert.rejects(service.retry(created.id, "competitors"), /removida/);
 });
 
 test("coleta Maps completa preserva evidências, custo e rascunho local quando a IA está indisponível", async () => {
@@ -93,7 +93,7 @@ test("coleta Maps completa preserva evidências, custo e rascunho local quando a
   assert.equal(result.companyName, "Clínica Horizonte");
   assert.equal(result.sourceStatuses.maps.status, "completed", result.sourceStatuses.maps.error);
   assert.equal(result.sourceStatuses.reviews.status, "completed");
-  assert.equal(result.sourceStatuses.competitors.status, "completed");
+  assert.equal(result.sourceStatuses.competitors.status, "skipped");
   assert.equal(result.sourceStatuses.website.status, "skipped");
   assert.equal(result.sourceStatuses.ai.status, "failed");
   assert.equal(result.slides.length, 9);
@@ -120,22 +120,6 @@ test("usa o site confirmado no formulário para auditoria e PageSpeed", async ()
   assert.ok(result.slides.some((slide) => slide.layout === "website"));
 });
 
-test("falha isolada mantém resultados parciais e entrega o material disponível", async () => {
-  const { service } = setup({ failCompetitors: true });
-  const created = service.create({ mapsUrl: "https://www.google.com/maps/place/exemplo" });
-  const result = await service.collect(created.id);
-
-  assert.equal(result.status, "finalized");
-  assert.equal(result.sourceStatuses.maps.status, "completed");
-  assert.equal(result.sourceStatuses.competitors.status, "failed");
-  assert.ok(result.evidence.some((item) => item.source === "maps"));
-  assert.equal(result.slides.length, 9);
-
-  const retried = await service.retry(created.id, "competitors");
-  assert.equal(retried.status, "finalized");
-  assert.equal(retried.sourceStatuses.competitors.status, "failed");
-  assert.match(retried.sourceStatuses.competitors.error ?? "", /Falha simulada/);
-});
 
 test("coleta o Instagram automaticamente a partir do link público", async () => {
   const { service } = setup({ withInstagram: true });

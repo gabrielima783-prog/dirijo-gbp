@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createDatabase } from '../src/server/db.js';
 import { AnalysisRepository } from '../src/server/repository.js';
+import { buildAIDiagnosticBrief } from '../src/core/ai-brief.js';
 
 test('history is small and never loads full diagnostics or screenshots',()=>{
  const db=createDatabase({filename:':memory:'});const repository=new AnalysisRepository(db);
@@ -17,4 +18,20 @@ test('history is small and never loads full diagnostics or screenshots',()=>{
  assert.equal(result[0]!.sourceStatuses.ai.status,'pending');
  for(const key of ['input','evidence','assets','findings','slides','costs'])assert.equal(key in result[0]!,false);
  assert.ok(JSON.stringify(result).length<1500);db.close();
+});
+
+test('legacy competitor data is preserved in storage and excluded from diagnostics and AI', () => {
+ const db=createDatabase({filename:':memory:'});const repository=new AnalysisRepository(db);
+ const analysis=repository.create({companyName:'Empresa histórica'},0.1,1);
+ const legacy=repository.replaceEvidence(analysis.id,'competitors',[{title:'Comparação antiga',value:{competitors:[{title:'Outro negócio'}]},observedAt:new Date().toISOString(),confidence:0.8}]);
+ repository.setSource(analysis.id,'competitors','failed','Erro antigo');
+ repository.addCost(analysis.id,'competitors',0.04);
+ const result=repository.get(analysis.id)!;
+ assert.equal(result.sourceStatuses.competitors.status,'skipped');
+ assert.equal(result.sourceStatuses.competitors.error,undefined);
+ assert.equal(result.evidence.length,0);
+ assert.equal(result.actualCostUsd,0.04);
+ assert.equal(db.prepare("SELECT COUNT(*) AS count FROM evidence WHERE source='competitors'").get()!.count,1);
+ assert.equal(buildAIDiagnosticBrief(legacy).evidence.length,0);
+ db.close();
 });

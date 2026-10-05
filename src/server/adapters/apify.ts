@@ -100,17 +100,6 @@ export class ApifyClient {
     return result;
   }
 
-  async collectCompetitors(category: string, location: string, region?: { city?: string | undefined; state?: string | undefined; countryCode?: string | undefined }): Promise<ApifyRunResult> {
-    return this.run({
-      searchStringsArray: [category], language: "pt-BR",
-      ...(region?.city ? { city: region.city, state: region.state, countryCode: (region.countryCode ?? "BR").toLowerCase() } : { locationQuery: `${location}, Brasil` }),
-      maxCrawledPlacesPerSearch: 6, scrapePlaceDetailPage: true, maxReviews: 3,
-      reviewsSort: "newest", reviewsOrigin: "google", scrapeReviewsPersonalData: false,
-      maxImages: 0, scrapeImageAuthors: false, skipClosedPlaces: true,
-      enableCompetitorAnalysis: false,
-    });
-  }
-
   private async waitForRun(runId: string): Promise<Record<string, unknown>> {
     for (let attempt = 0; attempt < 60; attempt += 1) {
       const url = new URL(`${this.baseUrl}/actor-runs/${runId}`);

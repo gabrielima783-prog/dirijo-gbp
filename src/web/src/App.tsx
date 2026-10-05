@@ -11,7 +11,7 @@ import { toneForSlide, type SlideTone } from '../../core/tone.js';
 
 const priorities: FindingPriority[] = ['critical', 'important', 'opportunity', 'strength'];
 const priorityLabels: Record<FindingPriority, string> = { critical: 'crítico', important: 'importante', opportunity: 'oportunidade', strength: 'ponto forte' };
-const sourceOrder: SourceKey[] = ['maps', 'reviews', 'competitors', 'website', 'pagespeed', 'instagram', 'ai'];
+const sourceOrder: SourceKey[] = ['maps', 'reviews', 'website', 'pagespeed', 'instagram', 'ai'];
 type PresentationFormat = 'desktop' | 'mobile';
 const DURIJO_WHATSAPP_URL = `https://wa.me/5527998615616?text=${encodeURIComponent('Quero agendar meu diagnóstico estratégico de 20 minutos.')}`;
 
@@ -115,7 +115,7 @@ function Notice({ children, tone = 'info' }: { children: ComponentChildren; tone
 }
 
 const providerCopy: Record<SettingsProvider, { index: string; name: string; role: string; keyLabel: string; placeholder: string }> = {
-  apify: { index: '01', name: 'Apify', role: 'Coleta Google Maps, avaliações, concorrentes e Instagram.', keyLabel: 'Token da Apify', placeholder: 'apify_api_...' },
+  apify: { index: '01', name: 'Apify', role: 'Coleta Google Maps, avaliações e Instagram.', keyLabel: 'Token da Apify', placeholder: 'apify_api_...' },
   openai: { index: '02', name: 'OpenAI', role: 'Interpreta as evidências, revisa os achados e personaliza o diagnóstico.', keyLabel: 'Chave da OpenAI', placeholder: 'sk-proj-...' },
   pagespeed: { index: '03', name: 'Google PageSpeed', role: 'Mede a experiência mobile e o desempenho do site analisado.', keyLabel: 'Chave da API PageSpeed', placeholder: 'AIza...' },
 };
@@ -421,7 +421,6 @@ function SlideCanvas({ slide, analysis, compact = false, format = 'desktop' }: {
   const profileValue = evidenceValue('maps', 'profile');
   const reviewsValue = evidenceValue('reviews');
   const mediaValue = evidenceValue('maps', 'media');
-  const comparisonValue = evidenceValue('competitors');
   const instagramValue = evidenceValue('instagram');
   const pageSpeedValue = (
     linkedEvidence.find(item => item.source === 'pagespeed') ||
@@ -444,7 +443,6 @@ function SlideCanvas({ slide, analysis, compact = false, format = 'desktop' }: {
     if (typeof mediaValue?.photoCount === 'number') metrics.push({ value: mediaValue.photoCount.toLocaleString('pt-BR'), label: 'fotos coletadas' });
     if (typeof mediaValue?.updateCount === 'number') metrics.push({ value: mediaValue.updateCount.toLocaleString('pt-BR'), label: 'atualizações observadas' });
   }
-  if (slide.layout === 'profile' && Array.isArray(comparisonValue?.competitors)) metrics.push({ value: comparisonValue.competitors.length.toLocaleString('pt-BR'), label: 'negócios comparados' });
   if (slide.layout === 'website' && pageSpeedValue) {
     if (typeof pageSpeedValue.performanceScore === 'number') metrics.push({ value: `${pageSpeedValue.performanceScore}/100`, label: 'desempenho no celular' });
     if (typeof pageSpeedValue.largestContentfulPaint === 'string') metrics.push({ value: pageSpeedValue.largestContentfulPaint, label: 'conteúdo principal visível' });

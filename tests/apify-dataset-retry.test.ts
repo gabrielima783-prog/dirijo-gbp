@@ -43,23 +43,3 @@ test("truncated JSON retries the read", async () => {
   assert.deepEqual((await client.run({})).items, []);
   assert.deepEqual(counts(), { starts: 1, reads: 2 });
 });
-
-test("competitor lookup disambiguates Vitória with country and state", async () => {
-  let input: Record<string, unknown> = {};
-  const fetch: FetchLike = async (_url, init) => {
-    if (init?.method === "POST") {
-      input = JSON.parse(String(init.body));
-      return Response.json({ data: { id: "run", status: "SUCCEEDED", defaultDatasetId: "dataset" } });
-    }
-    return Response.json([]);
-  };
-  const client = new ApifyClient({ token: "test-placeholder", fetch });
-  await client.collectCompetitors("Clínica", "Vitória", { city: "Vitória", state: "ES", countryCode: "BR" });
-  assert.equal(input.countryCode, "br");
-  assert.equal(input.city, "Vitória");
-  assert.equal(input.state, "ES");
-  assert.equal(input.locationQuery, undefined);
-  const place = normalizePlace({ title: "Example", city: "Vitória", state: "ES", countryCode: "BR" }, "https://maps.google.com/");
-  assert.equal(place.countryCode, "BR");
-  assert.equal(place.state, "ES");
-});

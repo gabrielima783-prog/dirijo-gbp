@@ -6,7 +6,6 @@ Painel local para transformar dados públicos do Perfil da Empresa no Google, si
 
 - histórico local em SQLite, com duplicação e reabertura;
 - coleta do Google Maps e avaliações pelo ator `compass/crawler-google-places` da Apify;
-- retrato comparativo de até cinco negócios semelhantes, sem alegação de ranking;
 - auditoria opcional do site, PageSpeed mobile e captura visual;
 - coleta automática do perfil e das publicações recentes do Instagram pelo ator `apify/instagram-profile-scraper`;
 - checklist e até quatro capturas opcionais para complementar a leitura automática do Instagram;
@@ -118,7 +117,7 @@ O guia operacional completo está em [GUIA-CONFIGURACAO-E-PERSONALIZACAO.md](GUI
 
 Tudo fica em `data/` no computador. A apresentação não leva nomes, avatares ou URLs pessoais de avaliadores. Imagens coletadas, capturas do site, logo e prints manuais são incorporados para continuarem disponíveis durante a apresentação mesmo sem internet.
 
-O produto compara apenas a amostra consultada, registrando termo, local e data. Ele não afirma posição exata, não inventa perda financeira e não promete efeito causal sobre ranking. O texto traduz sinais técnicos para o impacto que uma pessoa leiga consegue entender.
+O produto analisa somente a empresa informada, sem busca de concorrentes. Não afirma posição exata, não inventa perda financeira e não promete efeito causal sobre ranking. O texto traduz sinais técnicos para o impacto que uma pessoa leiga consegue entender.
 
 ## API local
 

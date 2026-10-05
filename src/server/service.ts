@@ -45,7 +45,7 @@ export class AnalysisService {
 
   estimate(input: AnalysisInput): CostEstimate {
     const breakdown: Partial<Record<SourceName, number>> = { ai: 0.08 };
-    if (input.mapsUrl?.trim()) Object.assign(breakdown, { maps: 0.08, reviews: 0.08, competitors: 0.12 });
+    if (input.mapsUrl?.trim()) Object.assign(breakdown, { maps: 0.08, reviews: 0.08 });
     if (input.websiteUrl) { breakdown.website = 0; breakdown.pagespeed = 0; }
     if (input.instagramUrl) breakdown.instagram = 0.01;
     const totalUsd = Object.values(breakdown).reduce((sum, amount) => sum + (amount ?? 0), 0);
@@ -101,6 +101,7 @@ export class AnalysisService {
   }
 
   retry(id: string, source: SourceName, confirmOverCap = false): Promise<Analysis> {
+    if (source === "competitors") return Promise.reject(new Error("Coleta de concorrentes removida."));
     return this.withHeavyOperation(() => this.retryInternal(id, source, confirmOverCap));
   }
 
@@ -138,9 +139,10 @@ export class AnalysisService {
     const estimate = this.estimate(analysis.input);
     if (estimate.requiresConfirmation && !confirmOverCap) throw new CostLimitError(estimate.totalUsd, estimate.capUsd);
     this.deps.repository.setStatus(id, "collecting");
+    this.deps.repository.setSource(id, "competitors", "skipped");
     const phases: SourceName[][] = [
       ["maps"],
-      ["reviews", "competitors", "website", "pagespeed", "instagram", "operator"],
+      ["reviews", "website", "pagespeed", "instagram", "operator"],
       ["ai"],
     ];
     let successes = 0;
@@ -197,27 +199,6 @@ export class AnalysisService {
       this.deps.repository.replaceEvidence(id, "reviews", [evidence("reviews", "O que as avaliações revelam antes do contato", { ...summarizeReviews(reviews), reviews, distribution: primary.reviewsDistribution }, primary.sourceUrl, observedAt, 0.95)]);
       this.deps.repository.addCost(id, "reviews", negative.costUsd, reviews.length, { runIds: [negative.runId] });
       this.deps.repository.setSource(id, "reviews", "completed", undefined, { runIds: [negative.runId] });
-      return;
-    }
-    if (source === "competitors") {
-      if (!this.deps.apify) throw new Error("Apify não configurada.");
-      const place = this.profile(id);
-      const category = place.category ?? place.categories[0]; const location = place.city ?? place.address;
-      if (!category || !location) throw new Error("Categoria ou cidade não disponível para comparação.");
-      const countryCode = place.countryCode ?? "BR";
-      const state = place.state ?? place.address?.match(/\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/)?.[1];
-      const result = await this.deps.apify.collectCompetitors(category, location, { city: place.city, state, countryCode });
-      const fold = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-      const competitors = result.items.map((item) => normalizePlace(item, input.mapsUrl!)).filter((item) =>
-        item.title !== place.title && Boolean(item.city) && Boolean(item.countryCode)
-        && fold(item.countryCode!) === fold(countryCode)
-        && (!place.city || fold(item.city!) === fold(place.city))
-        && (!state || !item.state || fold(item.state) === fold(state) || item.address?.includes(`- ${state}`))
-      ).slice(0, 5).map(safeCompetitor);
-      if (!competitors.length) throw new Error("A busca não retornou negócios semelhantes na região confirmada. Confira a categoria e a localização antes de tentar novamente.");
-      this.deps.repository.replaceEvidence(id, "competitors", [evidence("competitors", "Retrato comparativo local", { term: category, location, observedAt, competitors }, input.mapsUrl, observedAt, 0.85)]);
-      this.deps.repository.addCost(id, "competitors", result.costUsd, competitors.length, { runId: result.runId });
-      this.deps.repository.setSource(id, "competitors", "completed", undefined, { runId: result.runId, term: category, location }, result.runId);
       return;
     }
     if (source === "website") {
@@ -305,7 +286,8 @@ export class AnalysisService {
     return value as PlaceSnapshot | undefined;
   }
   private isRelevant(id: string, source: SourceName, input: AnalysisInput): boolean {
-    if (source === "reviews" || source === "competitors") return Boolean(input.mapsUrl?.trim());
+    if (source === "competitors") return false;
+    if (source === "reviews") return Boolean(input.mapsUrl?.trim());
     if (source === "website") return true;
     if (source === "pagespeed") return Boolean(this.deps.pageSpeed && this.websiteUrlFor(id, input));
     if (source === "instagram") return Boolean(input.instagramUrl || input.instagramChecklist || input.instagramScreenshots?.length);
@@ -417,7 +399,6 @@ export function summarizeReviews(reviews: PlaceSnapshot["reviews"], now = new Da
     themes,
   };
 }
-function safeCompetitor(place:PlaceSnapshot){return{title:place.title,category:place.category,categories:place.categories,address:place.address,website:place.website,totalScore:place.totalScore,reviewsCount:place.reviewsCount,recentReviewCount:place.reviews.length,hasOwnerResponses:place.reviews.some((review)=>Boolean(review.responseText || review.responseAt) || review.responseStatus === "present") ? true : place.reviews.length && place.reviews.every((review)=>review.responseStatus === "absent") ? false : undefined,hasUpdates:Boolean(place.ownerUpdates?.length),hasImages:Boolean(place.imageUrls.length),sourceUrl:place.sourceUrl};}
 async function downloadImages(urls:string[]):Promise<string[]>{const results:string[]=[];for(const url of urls){try{const response=await fetch(url,{signal:AbortSignal.timeout(8_000)});if(!response.ok)continue;const type=response.headers.get("content-type")??"";const length=Number(response.headers.get("content-length")??0);if(!type.startsWith("image/")||length>3_000_000)continue;const bytes=Buffer.from(await response.arrayBuffer());if(bytes.length>3_000_000)continue;results.push(`data:${type};base64,${bytes.toString("base64")}`);}catch{/* mantém as demais evidências */}}return results;}
 function normalizeLoose(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
