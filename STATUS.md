@@ -39,3 +39,18 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Adaptador agora tenta até quatro leituras do mesmo dataset para HTTP 429/5xx, falhas de conexão e resposta inválida, com espera progressiva e timeout por tentativa. POST de criação do ator não é repetido pela recuperação da leitura.
 - Build e git diff --check aprovados. Testes e publicação ainda não executados; aguardam autorização. Release de produção permanece `146ca31350504c66f39f968091ec4d273b62ecc0`.
 - Diagnóstico existente ainda precisa ser recuperado, preferencialmente reutilizando o dataset já pago.
+
+
+## Recuperação da leitura e localização publicada, 05/10/2026
+
+- Publicado em produção o SHA `07ce088d5893f5698a395bdc812410c8c1f15e87`, PR 1 integrada, pacote SHA-256 `cc0aeb3a66553865d128703517acbb238f079cfb0e3bbb81751c888247d50736`. Build e 57 testes aprovados. Backup cifrado realizado antes da promoção; health da aplicação e vizinhos HTTP 200.
+- Leituras de dataset transitórias repetem somente GET, até quatro tentativas. Consulta comparativa agora envia país e estado/cidade; resultados de outros países/cidades não entram na evidência e amostra vazia não é sucesso.
+- Apify confirmou que a consulta anterior de Face Doctor usou apenas `Vitória` e retornou um negócio em Brighton, Victoria, Austrália. Resultado anterior não será reutilizado por incompatibilidade geográfica.
+- Nenhuma nova coleta paga foi disparada após a publicação. Proprietário questionou a necessidade da comparação; aguardando decisão entre manter Cenário local ou retirar a coleta de concorrentes. Recuperação do diagnóstico continua pendente dessa decisão.
+- Executor aplicou sua política automática de limpeza, preservando releases protegidas, dados e backups. Espaço após publicação: 20%, 20.443.880 KiB.
+
+
+## Remoção da comparação local, em publicação 05/10/2026
+
+- Proprietário determinou retirar concorrentes e publicar em produção. Coleta, estimativa de custo, opção de nova tentativa e linha Cenário local removidas do fluxo ativo.
+- Evidências antigas de concorrentes e achados/slides vinculados ficam fora da leitura ativa e da síntese; armazenamento e custos históricos preservados. Não será disparada nova coleta paga para recuperar Face Doctor.

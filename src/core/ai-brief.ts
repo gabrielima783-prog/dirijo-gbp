@@ -226,9 +226,10 @@ function crossChannelSignals(evidence: Evidence[]): AIDiagnosticBrief['crossChan
 }
 
 export function buildAIDiagnosticBrief(evidence: Evidence[]): AIDiagnosticBrief {
+  evidence = evidence.filter((item) => item.source !== 'competitors');
   return {
     evidence: evidence
-      .filter((item) => item.source !== 'ai')
+      .filter((item) => item.source !== 'ai' && item.source !== 'competitors')
       .map((item) => {
         const detail = briefFacts(item);
         return {

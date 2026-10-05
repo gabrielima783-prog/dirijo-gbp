@@ -87,6 +87,9 @@ export class AnalysisRepository {
         updatedAt: String(run.updated_at),
       };
     }
+    statuses.competitors = { status: "skipped", updatedAt: String(row.updated_at) };
+    const evidence = this.evidence(id);
+    const retiredIds = new Set(evidence.filter(item => item.source === "competitors").map(item => item.id));
     const costs = this.costs(id);
     return {
       id,
@@ -97,7 +100,9 @@ export class AnalysisRepository {
       actualCostUsd: costs.reduce((sum, item) => sum + item.amountUsd, 0),
       costLimitUsd: Number(row.cost_limit_usd),
       sourceStatuses: statuses,
-      evidence: this.evidence(id), findings: this.findings(id), slides: this.slides(id),
+      evidence: evidence.filter(item => item.source !== "competitors"),
+      findings: this.findings(id).filter(item => item.category !== "comparison" && !item.evidenceIds.some(key => retiredIds.has(key))),
+      slides: this.slides(id).filter(item => !item.evidenceIds.some(key => retiredIds.has(key))),
       assets: this.assets(id), costs,
       createdAt: String(row.created_at), updatedAt: String(row.updated_at),
       finalizedAt: row.finalized_at ? String(row.finalized_at) : undefined,

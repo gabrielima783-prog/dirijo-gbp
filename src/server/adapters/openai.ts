@@ -39,7 +39,7 @@ const categoryByLayout: Record<string, string> = {
   profile: 'profile', reputation: 'reputation', responses: 'reputation', media: 'media', website: 'website', instagram: 'instagram',
 };
 const categoriesByLayout: Record<string, string[]> = {
-  profile: ['profile', 'comparison'], reputation: ['reputation'], responses: ['reputation'], media: ['media'], website: ['website'], instagram: ['instagram'],
+  profile: ['profile'], reputation: ['reputation'], responses: ['reputation'], media: ['media'], website: ['website'], instagram: ['instagram'],
 };
 const priorityWeight: Record<FindingPriority, number> = { critical: 0, important: 1, opportunity: 2, strength: 3 };
 
@@ -58,6 +58,7 @@ export class OpenAIDiagnosticClient {
     verificationResponseId?: string;
     verificationApplied: boolean;
   }> {
+    evidence = evidence.filter((item) => item.source !== 'competitors');
     if (!this.options.apiKey) throw new Error('OPENAI_API_KEY ausente.');
     const requiredLayouts = requiredSlideLayouts(evidence);
     const findingLayouts = requiredLayouts.filter((layout) => DIAGNOSTIC_LAYOUTS.includes(layout));

@@ -41,3 +41,6 @@ Aplicação local preservada e versão compartilhada na VPS, com autenticação 
 ## Layout padrão aprovado em 05/10/2026
 - Referência: `templates/diagnostico-layout-aprovado-2026-10-05.html`, substituindo as direções visuais de 02/10. Preservar escala tipográfica, cores, espaçamentos, consequências em duas colunas e CTA “VOCÊ GANHOU / Uma conversa sobre a sua clínica / 20 minutos · Sem custo / Agendar minha conversa”.
 - Adaptar clínica/pacientes para empresa/clientes conforme o negócio. As consequências dependem dos achados confirmados exibidos, nunca copiar os problemas da Homenz para outras empresas.
+
+## Escopo confirmado em 05/10/2026
+- Analisar somente a empresa informada, pelo Perfil do Google, avaliações, site e Instagram. Coleta de concorrentes e Cenário local removidos por decisão do proprietário. Evidências históricas de concorrentes não entram na síntese nem nas entregas atuais.

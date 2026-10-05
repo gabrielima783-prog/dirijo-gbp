@@ -160,7 +160,7 @@ Pedido de exemplo:
 Arquivos principais:
 
 - `src/server/service.ts`: orquestração, etapas, custos e falhas isoladas;
-- `src/server/adapters/apify.ts`: Maps, concorrentes e Instagram;
+- `src/server/adapters/apify.ts`: Maps, avaliações e Instagram;
 - `src/server/adapters/website.ts`: site, capturas e PageSpeed;
 - `src/shared/types.ts`: contratos dos dados.
 
