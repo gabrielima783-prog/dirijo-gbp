@@ -1,0 +1,5 @@
+{
+ "name":"dirijo-gbp-backup", "main":"index.js", "account_id":"98b1225fc5e62de17b299c47d3dc9106", "compatibility_date":"2026-10-05", "workers_dev":true,
+ "r2_buckets":[{"binding":"BACKUPS","bucket_name":"dirijo-gbp-backups"}],
+ "triggers":{"crons":["10 7 * * *"]}, "observability":{"enabled":false}
+}

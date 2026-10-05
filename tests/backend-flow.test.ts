@@ -138,6 +138,25 @@ test("coleta o Instagram automaticamente a partir do link público", async () =>
   assert.ok(result.slides.some((slide) => slide.layout === "instagram"));
 });
 
+test("gera diagnóstico completo quando a empresa possui somente Instagram", async () => {
+  const { service } = setup({ withInstagram: true });
+  const created = service.create({ companyName: "Clínica Horizonte", instagramUrl: "https://instagram.com/clinica/" });
+  const result = await service.collect(created.id);
+
+  assert.equal(result.status, "finalized");
+  assert.equal(result.companyName, "Clínica Horizonte");
+  assert.equal(result.sourceStatuses.maps.status, "completed");
+  assert.equal(result.sourceStatuses.reviews.status, "skipped");
+  assert.equal(result.sourceStatuses.competitors.status, "skipped");
+  assert.equal(result.sourceStatuses.instagram.status, "completed");
+  assert.equal(result.estimatedCostUsd, 0.09);
+  assert.equal(result.slides.length, 10);
+  assert.ok(result.evidence.some((item) => item.source === "maps" && (item.value as { present?: boolean }).present === false));
+  assert.match(result.slides.find((slide) => slide.layout === "profile")?.body ?? "", /não possui um Perfil da Empresa no Google/i);
+  assert.match(result.slides.find((slide) => slide.layout === "reputation")?.body ?? "", /não reúne avaliações públicas/i);
+  assert.match(result.slides.find((slide) => slide.layout === "media")?.body ?? "", /não encontra fotos/i);
+});
+
 test("material nasce aprovado e continua editável depois da finalização automática", async () => {
   const { repository, service } = setup();
   const created = service.create({ mapsUrl: "https://maps.google.com/?cid=123" });
@@ -170,6 +189,9 @@ test("valida link do Maps e limite de quatro capturas do Instagram", () => {
   const { service } = setup();
   assert.throws(() => service.create({ mapsUrl: "https://example.com" }), /Google Maps/);
   assert.doesNotThrow(() => service.create({ mapsUrl: "https://share.google/8BAUNFPRrDDC1MXoS" }));
+  assert.doesNotThrow(() => service.create({ companyName: "Empresa sem Maps", instagramUrl: "https://instagram.com/empresa" }));
+  assert.throws(() => service.create({ instagramUrl: "https://instagram.com/empresa" }), /nome da empresa/i);
+  assert.throws(() => service.create({ companyName: "Empresa sem canais" }), /Instagram, o site ou observações/i);
   assert.throws(
     () => service.create({ mapsUrl: "https://maps.app.goo.gl/abc", instagramScreenshots: ["1", "2", "3", "4", "5"] }),
     /quatro capturas/,

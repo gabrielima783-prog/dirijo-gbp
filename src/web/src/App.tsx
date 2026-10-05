@@ -1,15 +1,19 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { api } from './api';
+import { api, type AuthUser } from './api';
+import { createContext } from 'preact';
+import { useContext } from 'preact/hooks';
+const SessionContext = createContext<AuthUser | null>(null);
 import type { Analysis, AnalysisInput, Evidence, Finding, FindingPriority, InstagramChecklist, PublicSettings, SettingsProvider, SettingsUpdate, SlideSpec, SourceKey } from './types';
 import { sourceLabels } from './types';
+import { CompactDiagnostic } from './CompactDiagnostic';
 import { toneForSlide, type SlideTone } from '../../core/tone.js';
 
 const priorities: FindingPriority[] = ['critical', 'important', 'opportunity', 'strength'];
 const priorityLabels: Record<FindingPriority, string> = { critical: 'crítico', important: 'importante', opportunity: 'oportunidade', strength: 'ponto forte' };
 const sourceOrder: SourceKey[] = ['maps', 'reviews', 'competitors', 'website', 'pagespeed', 'instagram', 'ai'];
 type PresentationFormat = 'desktop' | 'mobile';
-const DURIJO_WHATSAPP_URL = `https://wa.me/5527998615616?text=${encodeURIComponent('Gostei da análise, vamos agendar a call?')}`;
+const DURIJO_WHATSAPP_URL = `https://wa.me/5527998615616?text=${encodeURIComponent('Quero agendar meu diagnóstico estratégico de 20 minutos.')}`;
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return <div class={`brand ${compact ? 'brand--compact' : ''}`} aria-label="Dirijo GBP">
@@ -43,13 +47,16 @@ function useRoute() {
 }
 
 function Shell({ children, go, active }: { children: ComponentChildren; go: (p: string) => void; active: string }) {
+  const user = useContext(SessionContext);
   return <div class="shell">
     <header class="topbar">
       <button class="brand-button" onClick={() => go('/')}><Brand /></button>
       <nav aria-label="Navegação principal">
         <button class={active === 'history' ? 'active' : ''} onClick={() => go('/')}>Diagnósticos</button>
         <button class={active === 'new' ? 'active' : ''} onClick={() => go('/nova')}>Nova análise</button>
-        <button class={active === 'settings' ? 'active' : ''} onClick={() => go('/configuracoes')}>Configurações</button>
+        {user?.role === 'admin' && <button class={active === 'settings' ? 'active' : ''} onClick={() => go('/configuracoes')}>Configurações</button>}
+        <button onClick={() => go('/senha')}>Minha senha</button>
+        <button onClick={() => api.logout().then(() => location.reload())}>Sair</button>
       </nav>
       <button class="primary-action" onClick={() => go('/nova')}>Analisar empresa <span>→</span></button>
     </header>
@@ -67,6 +74,7 @@ function EmptyState({ go }: { go: (p: string) => void }) {
 }
 
 function History({ go }: { go: (p: string) => void }) {
+  const user=useContext(SessionContext);
   const [items, setItems] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,7 +104,7 @@ function History({ go }: { go: (p: string) => void }) {
           <span class="ledger-meta"><b>{formatDate(item.updatedAt)}</b><small>{money(item.actualCostUsd ?? item.estimatedCostUsd)}</small></span>
           <span class="arrow">→</span>
         </button>
-        <div class="ledger-actions"><button class="quiet-action" onClick={() => duplicate(item.id)}>Duplicar</button><button class="quiet-action quiet-action--danger" onClick={() => remove(item)}>Excluir</button></div>
+        <div class="ledger-actions"><button class="quiet-action" onClick={() => duplicate(item.id)}>Duplicar</button>{user?.role==='admin' && <button class="quiet-action quiet-action--danger" onClick={() => remove(item)}>Excluir</button>}</div>
       </article>})}
     </section>
   </Shell>;
@@ -124,14 +132,14 @@ function SettingsPage({ go }: { go: (p: string) => void }) {
     setSettings(value);
     setForm(current => ({ ...current, openaiModel: value.openai.model, apifyActorId: value.apify.actorId, apifyInstagramActorId: value.apify.instagramActorId }));
   }).catch(error => setMessage({ tone: 'error', text: error.message }));
-  useEffect(load, []);
+  useEffect(() => { void load(); }, []);
   const field = (key: string, value: string) => setForm(current => ({ ...current, [key]: value }));
   const save = async (event: Event) => {
     event.preventDefault(); setBusy(true); setMessage(null);
     const payload: SettingsUpdate = {
-      openaiModel: form.openaiModel,
-      apifyActorId: form.apifyActorId,
-      apifyInstagramActorId: form.apifyInstagramActorId,
+      ...(form.openaiModel ? { openaiModel: form.openaiModel } : {}),
+      ...(form.apifyActorId ? { apifyActorId: form.apifyActorId } : {}),
+      ...(form.apifyInstagramActorId ? { apifyInstagramActorId: form.apifyInstagramActorId } : {}),
       ...(form.apifyToken ? { apifyToken: form.apifyToken } : {}),
       ...(form.openaiApiKey ? { openaiApiKey: form.openaiApiKey } : {}),
       ...(form.pageSpeedApiKey ? { pageSpeedApiKey: form.pageSpeedApiKey } : {}),
@@ -214,17 +222,18 @@ function NewAnalysis({ go }: { go: (p: string) => void }) {
   };
   return <Shell go={go} active="new">
     <section class="page-intro page-intro--form">
-      <div><p class="eyebrow">Novo dossiê</p><h1>Comece pelo <em>lugar.</em></h1></div>
-      <p class="intro-copy">O link do Maps ancora a análise. Site e Instagram ampliam a leitura quando fizer sentido para a conversa.</p>
+      <div><p class="eyebrow">Novo dossiê</p><h1>Comece pela <em>presença.</em></h1></div>
+      <p class="intro-copy">Use os canais que a empresa possui. Quando o perfil do Google não existe, essa ausência vira parte do diagnóstico.</p>
     </section>
     <form class="intake" onSubmit={submit}>
       <section class="form-chapter form-chapter--dark">
         <div class="chapter-number">01 / 03</div>
-        <div class="chapter-copy"><h2>A empresa.</h2><p>Informe o perfil que o lead autorizou você a analisar.</p></div>
+        <div class="chapter-copy"><h2>A empresa.</h2><p>Informe o que existe hoje. O Google Maps pode ficar vazio quando a empresa ainda não possui cadastro.</p></div>
         <div class="fields">
-          <label class="field field--wide"><span>Link do Google Maps <b>obrigatório</b></span><input type="url" required placeholder="https://maps.google.com/…" value={input.mapsUrl} onInput={e => set('mapsUrl', e.currentTarget.value)} /></label>
+          <label class="field"><span>Nome da empresa <b>{input.mapsUrl ? 'opcional' : 'obrigatório sem Maps'}</b></span><input required={!input.mapsUrl} placeholder="Nome que aparecerá na apresentação" value={input.companyName || ''} onInput={e => set('companyName', e.currentTarget.value)} /></label>
+          <label class="field"><span>Link do Google Maps <i>opcional · deixe vazio se não existir</i></span><input type="url" placeholder="https://maps.google.com/…" value={input.mapsUrl || ''} onInput={e => set('mapsUrl', e.currentTarget.value)} /></label>
           <label class="field"><span>Site <i>opcional · confirme o endereço correto</i></span><input type="url" placeholder="https://empresa.com.br" value={input.websiteUrl || ''} onInput={e => set('websiteUrl', e.currentTarget.value)} /></label>
-          <label class="field"><span>Instagram <i>opcional · leitura automática pelo link</i></span><input type="url" placeholder="https://instagram.com/empresa" value={input.instagramUrl || ''} onInput={e => set('instagramUrl', e.currentTarget.value)} /></label>
+          <label class="field"><span>Instagram <i>{input.mapsUrl ? 'opcional' : 'informe este canal se for a única presença'}</i></span><input type="url" placeholder="https://instagram.com/empresa" value={input.instagramUrl || ''} onInput={e => set('instagramUrl', e.currentTarget.value)} /></label>
           <label class="field"><span>Nome do contato</span><input placeholder="Como você chama essa pessoa?" value={input.contactName || ''} onInput={e => set('contactName', e.currentTarget.value)} /></label>
           <label class="file-field"><span>Logo da empresa</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={e => uploadLogo(e.currentTarget.files)} /><b>{input.companyLogo ? 'Logo adicionada ✓' : 'Escolher arquivo →'}</b></label>
         </div>
@@ -239,7 +248,7 @@ function NewAnalysis({ go }: { go: (p: string) => void }) {
       </section>
       <section class="form-chapter form-chapter--submit">
         <div class="chapter-number">03 / 03</div>
-        <div class="chapter-copy"><h2>Gerar apresentação.</h2><p>A coleta entrega slides e PDFs prontos. Abra a correção somente se algo precisar de ajuste.</p></div>
+        <div class="chapter-copy"><h2>Gerar diagnóstico.</h2><p>O diagnóstico entrega um PDF de duas páginas com os achados e o próximo passo comercial.</p></div>
         <div class="submit-block"><p><b>Custo protegido.</b> A ferramenta estima o uso antes da coleta e pede confirmação acima de US$ 1.</p>{error && <Notice tone="error">{error}</Notice>}<button disabled={busy} class="primary-action primary-action--large">{busy ? 'Preparando…' : 'Criar diagnóstico →'}</button></div>
       </section>
     </form>
@@ -258,11 +267,12 @@ function SourceProgress({ analysis, onRetry }: { analysis: Analysis; onRetry: (k
 }
 
 function Collection({ analysis, reload, go }: { analysis: Analysis; reload: () => void; go: (p: string) => void }) {
+  const user=useContext(SessionContext);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const start = async (confirmed = false) => {
     setBusy(true); setError('');
     try { await api.collect(analysis.id, confirmed); reload(); }
-    catch (e) { const message = (e as Error).message; if (/US\$ ?1|limite|budget/i.test(message) && confirm(`${message}\n\nDeseja confirmar esta execução?`)) start(true); else setError(message); }
+    catch (e) { const message = (e as Error).message; if (user?.role==='admin' && !confirmed && /US\$ ?1|limite|budget/i.test(message) && confirm(`${message}\n\nDeseja confirmar esta execução?`)) start(true); else setError(message); }
     finally { setBusy(false); }
   };
   const retry = async (key: SourceKey) => { await api.retry(analysis.id, key); reload(); };
@@ -270,7 +280,7 @@ function Collection({ analysis, reload, go }: { analysis: Analysis; reload: () =
   return <>
     <section class="analysis-hero"><div><p class="eyebrow">Dossiê {analysis.id.slice(0, 8)}</p><h1>{analysis.companyName || 'Empresa em identificação'}<em>.</em></h1><p>{analysis.input.contactName ? `Preparado para a conversa com ${analysis.input.contactName}.` : 'Uma leitura baseada em sinais públicos e evidências preservadas.'}</p></div><div class="cost-note"><small>Custo estimado</small><b>{money(analysis.estimatedCostUsd)}</b><span>limite automático · US$ 1</span></div></section>
     {error && <Notice tone="error">{error}</Notice>}
-    <section class="collection-sheet"><div class="collection-head"><div><p class="eyebrow">Rastro da coleta</p><h2>{analysis.status === 'finalized' ? 'Apresentação e PDFs prontos.' : done ? 'Material disponível para correção.' : analysis.status === 'collecting' ? 'Estamos reunindo os sinais.' : 'Pronto para começar.'}</h2></div>{analysis.status === 'draft' && <button class="primary-action" disabled={busy} onClick={() => start()}>{busy ? 'Iniciando…' : 'Iniciar coleta →'}</button>}{done && <div class="collection-actions"><button class="secondary-action" onClick={() => go(`/analises/${analysis.id}/editar`)}>Corrigir conteúdo</button>{analysis.status === 'finalized' && <><button class="primary-action" onClick={() => go(`/apresentacao/${analysis.id}`)}>Apresentar →</button><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf?format=desktop`} target="_blank">PDF apresentação 16:9</a><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf?format=mobile`} target="_blank">PDF para celular 9:16</a></>}</div>}</div><SourceProgress analysis={analysis} onRetry={retry} /></section>
+    <section class="collection-sheet"><div class="collection-head"><div><p class="eyebrow">Rastro da coleta</p><h2>{analysis.status === 'finalized' ? 'Diagnóstico de 2 páginas pronto.' : done ? 'Material disponível para correção.' : analysis.status === 'collecting' ? 'Estamos reunindo os sinais.' : 'Pronto para começar.'}</h2></div>{analysis.status === 'draft' && <button class="primary-action" disabled={busy} onClick={() => start()}>{busy ? 'Iniciando…' : 'Iniciar coleta →'}</button>}{done && <div class="collection-actions"><button class="secondary-action" onClick={() => go(`/analises/${analysis.id}/editar`)}>Corrigir conteúdo</button>{analysis.status === 'finalized' && <><button class="primary-action" onClick={() => go(`/apresentacao/${analysis.id}`)}>Ver diagnóstico →</button><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf`} target="_blank">PDF · 2 páginas</a></>}</div>}</div><SourceProgress analysis={analysis} onRetry={retry} /></section>
   </>;
 }
 
@@ -371,7 +381,7 @@ function Editor({ analysis, reload, go }: { analysis: Analysis; reload: () => vo
   const openPresentation = async () => { try { await persist(); await api.finalize(analysis.id); go(`/apresentacao/${analysis.id}`); } catch (e) { setError((e as Error).message); } };
   const move = (index: number, delta: number) => setSlides(current => { const next = [...current]; const [item] = next.splice(index, 1); if (!item) return current; next.splice(index + delta, 0, item); return next; });
   return <>
-    <section class="editor-header"><div><p class="eyebrow">Correção opcional</p><h1>{analysis.companyName || 'Diagnóstico'}<em>.</em></h1><p class="editor-description">O material já está pronto. Edite, oculte ou regenere apenas o que precisar.</p></div><div class="editor-actions"><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf?format=desktop`} target="_blank">PDF 16:9</a><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf?format=mobile`} target="_blank">PDF celular 9:16</a><button class="secondary-action" onClick={save}>{saved ? 'Correções salvas ✓' : 'Salvar correções'}</button><button class="primary-action" onClick={openPresentation}>Abrir apresentação →</button></div></section>
+    <section class="editor-header"><div><p class="eyebrow">Correção opcional</p><h1>{analysis.companyName || 'Diagnóstico'}<em>.</em></h1><p class="editor-description">O material já está pronto. Edite, oculte ou regenere apenas o que precisar.</p></div><div class="editor-actions"><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf`} target="_blank">PDF · 2 páginas</a><button class="secondary-action" onClick={save}>{saved ? 'Correções salvas ✓' : 'Salvar correções'}</button><button class="primary-action" onClick={openPresentation}>Ver diagnóstico →</button></div></section>
     {error && <Notice tone="error">{error}</Notice>}
     <nav class="editor-tabs"><button class={tab === 'findings' ? 'active' : ''} onClick={() => setTab('findings')}>Achados <span>{findings.length}</span></button><button class={tab === 'slides' ? 'active' : ''} onClick={() => setTab('slides')}>Slides <span>{slides.length}</span></button><button class={tab === 'evidence' ? 'active' : ''} onClick={() => setTab('evidence')}>Evidências <span>{analysis.evidence.length}</span></button></nav>
     {tab === 'findings' && <section class="editor-stack">{findings.map((finding, index) => <FindingEditor key={finding.id} finding={finding} onChange={next => setFindings(current => current.map((f, i) => i === index ? next : f))} onRemove={() => setFindings(current => current.filter((_, i) => i !== index))}/>)}</section>}
@@ -423,7 +433,13 @@ function SlideCanvas({ slide, analysis, compact = false, format = 'desktop' }: {
     if (typeof profileValue?.reviewsCount === 'number') metrics.push({ value: profileValue.reviewsCount.toLocaleString('pt-BR'), label: 'avaliações' });
   }
   if (slide.layout === 'reputation' && typeof reviewsValue?.sampleSize === 'number') metrics.push({ value: reviewsValue.sampleSize.toLocaleString('pt-BR'), label: 'avaliações analisadas' });
-  if (slide.layout === 'responses' && typeof reviewsValue?.ownerResponseRate === 'number') metrics.push({ value: `${reviewsValue.ownerResponseRate}%`, label: 'receberam resposta da empresa' });
+  if (slide.layout === 'responses' && reviewsValue) {
+    if (typeof reviewsValue.ownerResponseRate === 'number' && reviewsValue.ownerResponseVerification !== 'unknown') {
+      metrics.push({ value: `${reviewsValue.ownerResponseRate}%`, label: 'da amostra receberam resposta da empresa' });
+    } else {
+      metrics.push({ value: 'Não verificado', label: 'respostas da empresa na amostra' });
+    }
+  }
   if (slide.layout === 'media') {
     if (typeof mediaValue?.photoCount === 'number') metrics.push({ value: mediaValue.photoCount.toLocaleString('pt-BR'), label: 'fotos coletadas' });
     if (typeof mediaValue?.updateCount === 'number') metrics.push({ value: mediaValue.updateCount.toLocaleString('pt-BR'), label: 'atualizações observadas' });
@@ -464,6 +480,7 @@ function Presentation({ id, presenter = false }: { id: string; presenter?: boole
   if (!analysis) return <div class="presentation-loading"><Brand/><p>Preparando apresentação…</p></div>;
   const params = new URLSearchParams(location.search);
   const printMode = params.get('print') === '1';
+  if (!presenter && params.get('view') !== 'complete') return <div class={printMode ? 'compact-print' : 'compact-screen'}><CompactDiagnostic analysis={analysis}/>{!printMode && <nav class="compact-controls"><a href={`/api/analyses/${id}/pdf`} target="_blank">Baixar PDF · 2 páginas</a><a href={`/apresentacao/${id}?view=complete&format=mobile`}>Ver diagnóstico completo</a><a href={`/analises/${id}/editar`}>Revisar achados</a></nav>}</div>;
   const format: PresentationFormat = params.get('format') === 'mobile' ? 'mobile' : 'desktop';
   if (printMode) return <div class={`print-deck print-deck--${format}`} data-presentation-ready="true">{analysis.slides.map(item => <SlideCanvas key={item.id} slide={item} analysis={analysis} format={format}/>)}</div>;
   const slide = analysis.slides[index]; const next = analysis.slides[index + 1]; const clock = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -472,16 +489,42 @@ function Presentation({ id, presenter = false }: { id: string; presenter?: boole
     <header><Brand/><div class="presenter-clock"><small>tempo da gravação</small><b>{clock}</b><button onClick={() => setRunning(!running)}>{running ? 'Pausar' : 'Iniciar'}</button><button onClick={() => setSeconds(0)}>Zerar</button></div></header>
     <main><div class="presenter-preview"><SlideCanvas slide={slide} analysis={analysis} compact format={format}/><div class="presenter-controls"><button onClick={() => move(index - 1)}>← Anterior</button><span>{index + 1} / {analysis.slides.length}</span><button onClick={() => move(index + 1)}>Próximo →</button></div></div><aside><p class="eyebrow">Roteiro · {slide.durationSeconds || 0}s</p><h1>{slide.title}</h1><div class="notes">{slide.speakerNotes}</div>{next && <div class="next-up"><small>Em seguida</small><b>{next.title}</b></div>}</aside></main>
   </div>;
-  return <div class={`presentation-view presentation-view--${format}`} data-presentation-ready="true"><SlideCanvas slide={slide} analysis={analysis} format={format}/><div class="presentation-controls"><button onClick={() => move(index - 1)}>←</button><span>{index + 1} / {analysis.slides.length}</span><button onClick={() => move(index + 1)}>→</button><button onClick={() => open(`/presenter/${id}?format=${format}`, '_blank')}>Modo apresentador</button><a href={`/apresentacao/${id}?format=${format === 'mobile' ? 'desktop' : 'mobile'}`}>{format === 'mobile' ? 'Ver apresentação 16:9' : 'Ver formato celular 9:16'}</a><a href={`/api/analyses/${id}/pdf?format=desktop`} target="_blank">Baixar PDF 16:9</a><a href={`/api/analyses/${id}/pdf?format=mobile`} target="_blank">Baixar PDF para celular 9:16</a></div></div>;
+  return <div class={`presentation-view presentation-view--${format}`} data-presentation-ready="true"><SlideCanvas slide={slide} analysis={analysis} format={format}/><div class="presentation-controls"><button onClick={() => move(index - 1)}>←</button><span>{index + 1} / {analysis.slides.length}</span><button onClick={() => move(index + 1)}>→</button><button onClick={() => open(`/presenter/${id}?format=${format}`, '_blank')}>Modo apresentador</button><a href={`/apresentacao/${id}?view=complete&format=${format === 'mobile' ? 'desktop' : 'mobile'}`}>{format === 'mobile' ? 'Ver apresentação 16:9' : 'Ver formato celular 9:16'}</a><a href={`/api/analyses/${id}/pdf?format=desktop&view=complete`} target="_blank">Baixar PDF completo 16:9</a><a href={`/api/analyses/${id}/pdf?format=mobile&view=complete`} target="_blank">Baixar PDF completo 9:16</a></div></div>;
 }
 
-export function App() {
+function Routes() {
   const { path, go } = useRoute();
+  const user=useContext(SessionContext);
   const presenter = path.match(/^\/(?:apresentador|presenter)\/([^/]+)/); if (presenter?.[1]) return <Presentation id={presenter[1]} presenter/>;
   const presentation = path.match(/^\/(?:apresentacao|presentation)\/([^/]+)/); if (presentation?.[1]) return <Presentation id={presentation[1]}/>;
   const editor = path.match(/^\/analises\/([^/]+)\/editar/); if (editor?.[1]) return <AnalysisPage id={editor[1]} edit go={go}/>;
   const analysis = path.match(/^\/analises\/([^/]+)/); if (analysis?.[1]) return <AnalysisPage id={analysis[1]} edit={false} go={go}/>;
-  if (path === '/configuracoes') return <SettingsPage go={go}/>;
+  if (path === '/senha') return <PasswordPage user={user!} onChanged={()=>go('/')} go={go}/>;
+  if (path === '/configuracoes') return user?.role==='admin' ? <SettingsPage go={go}/> : <History go={go}/>;
   if (path === '/nova') return <NewAnalysis go={go}/>;
   return <History go={go}/>;
+}
+
+function Login({ onLogin }: {onLogin:(user:AuthUser)=>void}) {
+ const [email,setEmail]=useState(''); const [password,setPassword]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);
+ return <main class="auth-screen"><section class="auth-card"><Brand/><p class="eyebrow">Acesso à operação</p><h1>Entrar no GBP</h1><form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{onLogin(await api.login(email,password));}catch(err){setError((err as Error).message);}finally{setBusy(false);}}}>
+ <label>E-mail<input type="email" required autoComplete="username" value={email} onInput={e=>setEmail(e.currentTarget.value)}/></label>
+ <label>Senha<input type="password" required autoComplete="current-password" value={password} onInput={e=>setPassword(e.currentTarget.value)}/></label>
+ {error && <Notice tone="error">{error}</Notice>}<button class="primary-action" disabled={busy}>{busy?'Entrando…':'Entrar'}</button></form></section></main>;
+}
+function PasswordPage({user,onChanged,go}:{user:AuthUser;onChanged:(user:AuthUser)=>void;go?:(path:string)=>void}) {
+ const [current,setCurrent]=useState('');const [next,setNext]=useState('');const [confirmation,setConfirmation]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);
+ return <main class="auth-screen"><section class="auth-card"><Brand/><h1>{user.mustChangePassword?'Defina sua senha':'Trocar senha'}</h1><p>Use pelo menos 12 caracteres.</p><form onSubmit={async e=>{e.preventDefault();if(next!==confirmation){setError('As senhas não coincidem.');return;}setBusy(true);setError('');try{onChanged(await api.password(current,next));}catch(err){setError((err as Error).message);}finally{setBusy(false);}}}>
+ <label>Senha atual<input type="password" required autoComplete="current-password" value={current} onInput={e=>setCurrent(e.currentTarget.value)}/></label>
+ <label>Nova senha<input type="password" required minLength={12} maxLength={256} autoComplete="new-password" value={next} onInput={e=>setNext(e.currentTarget.value)}/></label>
+ <label>Confirmar senha<input type="password" required minLength={12} autoComplete="new-password" value={confirmation} onInput={e=>setConfirmation(e.currentTarget.value)}/></label>
+ {error && <Notice tone="error">{error}</Notice>}<button class="primary-action" disabled={busy}>{busy?'Salvando…':'Salvar senha'}</button>{go && <button type="button" onClick={()=>go('/')}>Voltar</button>}</form></section></main>;
+}
+export function App() {
+ const [user,setUser]=useState<AuthUser|null>(null);const [loading,setLoading]=useState(true);
+ useEffect(()=>{api.me().then(setUser).catch(()=>setUser(null)).finally(()=>setLoading(false));const expired=()=>setUser(null);addEventListener('gbp-session-expired',expired);return()=>removeEventListener('gbp-session-expired',expired);},[]);
+ if(loading)return <div class="loading-line">Carregando…</div>;
+ if(!user)return <Login onLogin={setUser}/>;
+ if(user.mustChangePassword)return <PasswordPage user={user} onChanged={setUser}/>;
+ return <SessionContext.Provider value={user}><Routes/></SessionContext.Provider>;
 }

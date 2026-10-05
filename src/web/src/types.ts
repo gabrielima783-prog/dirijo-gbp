@@ -16,7 +16,8 @@ export interface InstagramChecklist {
 }
 
 export interface AnalysisInput {
-  mapsUrl: string;
+  mapsUrl?: string;
+  companyName?: string;
   websiteUrl?: string;
   instagramUrl?: string;
   contactName?: string;

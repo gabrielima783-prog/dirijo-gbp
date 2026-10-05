@@ -16,7 +16,7 @@ export interface InstagramChecklist {
 }
 
 export interface AnalysisInput {
-  mapsUrl: string;
+  mapsUrl?: string | undefined;
   companyName?: string | undefined;
   websiteUrl?: string | undefined;
   instagramUrl?: string | undefined;
@@ -127,6 +127,7 @@ export interface PublicReview {
   publishedAt?: string | undefined;
   responseText?: string | undefined;
   responseAt?: string | undefined;
+  responseStatus?: "present" | "absent" | "unknown" | undefined;
 }
 
 export interface PlaceSnapshot {

@@ -1,3 +1,4 @@
+import { assertResponseFacts } from './review-responses.js';
 import { assertPlainLanguage, assertSafeSlideText, inferCategory } from './content.js';
 import type { DiagnosticContext, Evidence, Finding, PresentationSpec, SlideLayout } from './types.js';
 
@@ -12,7 +13,7 @@ function isHttpUrl(value: string): boolean {
 
 export function validateDiagnosticContext(context: DiagnosticContext): void {
   if (!context.analysisId.trim()) throw new Error('analysisId é obrigatório');
-  if (!isHttpUrl(context.input.mapsUrl)) throw new Error('mapsUrl deve ser uma URL HTTP válida');
+  if (context.input.mapsUrl && !isHttpUrl(context.input.mapsUrl)) throw new Error('mapsUrl deve ser uma URL HTTP válida');
   if (context.input.websiteUrl && !isHttpUrl(context.input.websiteUrl)) {
     throw new Error('websiteUrl deve ser uma URL HTTP válida');
   }
@@ -46,6 +47,9 @@ export function validateFindings(findings: Finding[], evidence: Evidence[]): voi
       finding.idealState,
       finding.recommendedDirection,
     ]);
+    for (const item of evidence.filter((item) => item.source === 'reviews' && finding.evidenceIds.includes(item.id))) {
+      if (item.value && typeof item.value === 'object') assertResponseFacts([finding.headline, finding.observation, finding.possibleImpact, finding.idealState, finding.recommendedDirection].join(' '), item.value as Record<string, unknown>);
+    }
     if (!finding.idealState.trim()) throw new Error(`Achado ${finding.id} não explica como deveria estar`);
     assertPlainLanguage(`${finding.observation} ${finding.possibleImpact} ${finding.idealState} ${finding.recommendedDirection}`);
   }
@@ -105,6 +109,9 @@ export function validatePresentation(presentation: PresentationSpec, evidence: E
       if (!linked.some((item) => allowedCategories.includes(inferCategory(item)))) {
         throw new Error(`O slide ${slide.id} não possui evidência compatível com seu tema.`);
       }
+    }
+    for (const item of evidence.filter((item) => item.source === 'reviews' && slide.evidenceIds.includes(item.id))) {
+      if (item.value && typeof item.value === 'object') assertResponseFacts(`${slide.title} ${slide.body} ${slide.speakerNotes}`, item.value as Record<string, unknown>);
     }
     assertSafeSlideText([slide.title, slide.body, slide.speakerNotes]);
     assertPlainLanguage(`${slide.title} ${slide.body} ${slide.speakerNotes}`);

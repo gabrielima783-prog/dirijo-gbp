@@ -2,13 +2,15 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Hono, type Context } from "hono";
 import type { AnalysisInput, Finding, SlideSpec, SourceName } from "../shared/types.js";
-import { configurationStatus, type ServerConfig } from "./config.js";
+import { type ServerConfig } from "./config.js";
 import { AnalysisRepository } from "./repository.js";
-import { AnalysisService, CostLimitError, NotFoundError } from "./service.js";
+import { AnalysisService, CostLimitError, NotFoundError, OperationBusyError } from "./service.js";
 import { exportAnalysisPdf } from "./pdf.js";
+import { AuthStore } from "./auth.js";
 import { LocalSettingsStore, type SettingsProvider, type SettingsUpdate } from "./settings.js";
 
 export interface AppDependencies {
+  auth?: AuthStore;
   service: AnalysisService;
   repository: AnalysisRepository;
   config: ServerConfig;
@@ -20,13 +22,46 @@ export interface AppDependencies {
 export function createApp(deps: AppDependencies): Hono {
   const app = new Hono();
   app.onError((error, c) => {
+    if (error instanceof OperationBusyError) return c.json({error:error.message},409);
     if (error instanceof NotFoundError) return c.json({ error: error.message }, 404);
     if (error instanceof CostLimitError) return c.json({ error: error.message, estimatedUsd: error.estimatedUsd, limitUsd: error.limitUsd, requiresConfirmation: true }, 409);
     console.error("Falha da API:", error instanceof Error ? error.message : "erro desconhecido");
     return c.json({ error: error instanceof Error ? error.message : "Falha inesperada." }, 400);
   });
 
-  app.get("/api/health", (c) => c.json({ ok: true, running: true, configuration: configurationStatus(deps.config) }));
+  if (deps.auth) {
+    const auth = deps.auth;
+    app.use("*", async (c, next) => {
+      if (c.req.path === "/api/health") return next();
+      if (!c.req.path.startsWith("/api/") && !/^\/(presentation|apresentacao|presenter|apresentador)\//.test(c.req.path)) return next();
+      if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+        const origin = c.req.header("origin");
+        const allowed = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).origin : new URL(deps.baseUrl ?? c.req.url).origin;
+        if (!origin || origin !== allowed) return c.json({error:"Origem da solicitação inválida."},403);
+      }
+      if (c.req.path === "/api/auth/login") return next();
+      if (auth.isRenderer(c)) return next();
+      const user = auth.user(c);
+      if (!user) return c.json({error:"Entre para acessar o GBP."},401);
+      if (user.mustChangePassword && !["/api/auth/me","/api/auth/password","/api/auth/logout"].includes(c.req.path)) return c.json({error:"Troque sua senha inicial para continuar."},403);
+      if ((c.req.path.startsWith("/api/settings") || c.req.method === "DELETE") && user.role !== "admin") return c.json({error:"Acesso reservado ao administrador."},403);
+      if (user.role !== "admin" && ["POST","PUT"].includes(c.req.method) && c.req.header("content-type")?.includes("application/json")) {
+        const body = await c.req.json<Record<string,unknown>>().catch(()=>({} as Record<string,unknown>));
+        if (body.confirmOverBudget || body.confirmOverCap) return c.json({error:"Somente o administrador pode autorizar exceder o limite."},403);
+      }
+      return next();
+    });
+    app.post("/api/auth/login", async c => {
+      const body=await readJson<{email:string;password:string}>(c);
+      if (typeof body.email !== "string" || typeof body.password !== "string") return c.json({error:"Informe e-mail e senha."},400);
+      const user=auth.login(c,body.email,body.password);
+      return user ? c.json(user) : c.json({error:"E-mail ou senha incorretos."},401);
+    });
+    app.get("/api/auth/me", c => c.json(auth.user(c) ?? {id:"renderer",name:"Renderização",role:"renderer",mustChangePassword:false}));
+    app.post("/api/auth/logout", c => {auth.logout(c);return c.body(null,204);});
+    app.post("/api/auth/password", async c => { const body=await readJson<{currentPassword:string;newPassword:string}>(c);auth.changePassword(c,body.currentPassword,body.newPassword);return c.json(auth.user(c)); });
+  }
+  app.get("/api/health", (c) => c.json({ ok: true, running: true }));
   app.get("/api/settings", (c) => {
     if (!deps.settings) throw new Error("Configurações locais não disponíveis.");
     return c.json(deps.settings.publicView());
@@ -45,11 +80,11 @@ export function createApp(deps: AppDependencies): Hono {
     return c.json(await deps.settings.test(provider));
   });
   app.get("/api/analyses", (c) => c.json(deps.service.list()));
-  app.post("/api/analyses", async (c) => c.json(deps.service.create(await readJson<AnalysisInput>(c)), 201));
+  app.post("/api/analyses", async (c) => {const analysis=deps.service.create(await readJson<AnalysisInput>(c));deps.auth?.record(c,analysis.id,"created");return c.json(analysis,201);});
   app.get("/api/analyses/:id", (c) => c.json(deps.service.get(c.req.param("id"))));
   app.get("/api/analyses/:id/versions", (c) => { deps.service.get(c.req.param("id")); return c.json(deps.repository.versions(c.req.param("id"))); });
   app.post("/api/analyses/:id/duplicate", (c) => {
-    const result = deps.repository.duplicate(c.req.param("id")); if (!result) throw new NotFoundError(); return c.json(result, 201);
+    const result = deps.repository.duplicate(c.req.param("id")); if (!result) throw new NotFoundError(); deps.auth?.record(c,result.id,"duplicated");return c.json(result, 201);
   });
   app.delete("/api/analyses/:id", (c) => {
     const id = c.req.param("id");
@@ -63,6 +98,8 @@ export function createApp(deps: AppDependencies): Hono {
     const confirmed = Boolean(body.confirmOverBudget ?? body.confirmOverCap);
     const estimate = deps.service.estimate(analysis.input);
     if (estimate.requiresConfirmation && !confirmed) throw new CostLimitError(estimate.totalUsd, estimate.capUsd);
+    deps.service.ensureAvailable();
+    deps.auth?.record(c,id,"collection_requested");
     void deps.service.collect(id, confirmed).catch(() => undefined);
     return c.json(deps.service.get(id), 202);
   });
@@ -79,9 +116,12 @@ export function createApp(deps: AppDependencies): Hono {
   app.get("/api/analyses/:id/presentation", (c) => { const analysis=deps.service.get(c.req.param("id")); return c.json({ analysisId:analysis.id,companyName:analysis.companyName,generatedAt:analysis.updatedAt,slides:analysis.slides,totalDurationSeconds:analysis.slides.reduce((sum,slide)=>sum+slide.durationSeconds,0) }); });
   app.get("/api/analyses/:id/pdf", async (c) => {
     const analysis=deps.service.get(c.req.param("id")); if (!analysis.slides.length) throw new Error("A apresentação ainda não possui slides.");
-    const format=c.req.query("format") === "mobile" ? "mobile" : "desktop";
-    const outputDir=join(process.cwd(),"data","exports"); mkdirSync(outputDir,{recursive:true}); const path=join(outputDir,`${analysis.id}-${format}.pdf`);
-    await exportAnalysisPdf({analysisId:analysis.id,outputPath:path,format,baseUrl:deps.baseUrl??`http://${deps.config.host}:${deps.config.port}`,expectedSlideCount:analysis.slides.length});
+    const compact=c.req.query("view") !== "complete";
+    const format=compact || c.req.query("format") === "mobile" ? "mobile" : "desktop";
+    const outputDir=join(process.cwd(),"data","exports"); mkdirSync(outputDir,{recursive:true}); const path=join(outputDir,`${analysis.id}-${compact ? "compact" : format}.pdf`);
+    const renderer=deps.auth?.renderer(analysis.id);
+    try { await deps.service.withHeavyOperation(() => exportAnalysisPdf({analysisId:analysis.id,outputPath:path,format,compact,baseUrl:deps.baseUrl??`http://127.0.0.1:${deps.config.port}`,expectedSlideCount:compact ? 2 : analysis.slides.length,...(renderer ? {sessionToken:renderer.token} : {})})); }
+    finally { renderer?.revoke(); }
     const bytes=readFileSync(path); c.header("content-type","application/pdf"); c.header("content-disposition",`attachment; filename=\"${pdfDownloadFilename(analysis.companyName,analysis.finalizedAt??analysis.updatedAt,format)}\"`); return c.body(bytes);
   });
   return app;

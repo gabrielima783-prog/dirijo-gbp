@@ -1,0 +1,11 @@
+[Unit]
+Description=Dirijo GBP consistent encrypted backup to R2
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+ExecStart=/bin/bash /srv/dirijo-gbp/state/production/current/infra/backup.sh
+TimeoutStartSec=600

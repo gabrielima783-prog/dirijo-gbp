@@ -1,4 +1,5 @@
 import { compactText, humanizeValue, inferCategory, inferPriority, simplifyTechnicalLanguage } from './content.js';
+import { responseNarrative } from './review-responses.js';
 import { buildPresentation } from './slides.js';
 import { validateDiagnosticContext, validateFindings } from './validation.js';
 import type {
@@ -51,6 +52,7 @@ function observationFor(evidence: AssessedEvidence): string {
   if (!value) return compactText(`${evidence.title}: ${humanizeValue(evidence.value)}`, 240);
   const category = inferCategory(evidence);
   if (category === 'profile') {
+    if (value.present === false) return 'A empresa ainda não possui um Perfil da Empresa no Google informado.';
     const rating = numberFrom(value.totalScore ?? value.nota);
     const reviews = numberFrom(value.reviewsCount ?? value.avaliacoes);
     const description = value.description ?? value.descricao;
@@ -62,6 +64,9 @@ function observationFor(evidence: AssessedEvidence): string {
     return `O perfil apresenta ${facts.join(', ')}.`;
   }
   if (category === 'reputation') {
+    if (value.present === false) return value.targetLayout === 'responses'
+      ? 'Sem um perfil no Google, ainda não existe um canal público para acompanhar e responder avaliações.'
+      : 'Sem um perfil no Google, a empresa ainda não reúne avaliações públicas nesse canal.';
     const sample = numberFrom(value.sampleSize ?? value.total);
     const responseRate = numberFrom(value.ownerResponseRate);
     const responseCount = numberFrom(value.ownerResponseCount ?? value.respostasRecentes);
@@ -74,6 +79,7 @@ function observationFor(evidence: AssessedEvidence): string {
     return `Na reputação pública, foram observadas ${facts.join(', ')}.`;
   }
   if (category === 'media') {
+    if (value.present === false) return 'Sem um perfil no Google, quem pesquisa não encontra fotos nem atualizações publicadas pela empresa nesse canal.';
     const photos = numberFrom(value.photoCount);
     const updates = numberFrom(value.updateCount);
     return `A coleta encontrou ${photos ?? 0} fotos e ${updates ?? 0} atualizações públicas no perfil.`;
@@ -91,11 +97,17 @@ function observationFor(evidence: AssessedEvidence): string {
   if (category === 'website') {
     if (value.present === false) return 'Nenhum site próprio foi informado nem encontrado no Perfil da Empresa no Google.';
     const pages = Array.isArray(value.pages) ? value.pages as Array<Record<string, unknown>> : [];
-    const hasWhatsApp = pages.some((page) => page.hasWhatsApp === true) || value.whatsapp === true;
-    const hasBooking = pages.some((page) => page.hasBooking === true) || value.agendamento === true;
+    const nap = value.napConsistency && typeof value.napConsistency === 'object' ? value.napConsistency as Record<string, unknown> : {};
+    const actions = Array.isArray(nap.contactActions) ? nap.contactActions as Array<Record<string, unknown>> : pages.flatMap((page) => Array.isArray(page.contactActions) ? page.contactActions as Array<Record<string, unknown>> : []);
+    const hasWhatsApp = pages.some((page) => page.hasWhatsApp === true) || actions.some((action) => action.kind === 'whatsapp') || value.whatsapp === true;
+    const hasBooking = pages.some((page) => page.hasBooking === true) || actions.some((action) => action.kind === 'booking') || value.agendamento === true;
+    const contactLabels = [...new Set(actions.map((action) => stringFrom(action.label)).filter(Boolean))].slice(0, 3);
     const tracker = pages.find((page) => page.analytics && typeof page.analytics === 'object')?.analytics as Record<string, unknown> | undefined;
     const metaPixel = tracker?.metaPixel ?? (value.analytics as Record<string, unknown> | undefined)?.metaPixel;
-    return `O site ${hasWhatsApp ? 'mostra um caminho para o WhatsApp' : 'não mostrou um caminho claro para o WhatsApp'} e ${hasBooking ? 'apresenta agendamento' : 'não apresentou agendamento'}${metaPixel === false ? '. O rastreador público da Meta não foi encontrado' : ''}.`;
+    const contact = contactLabels.length ? ` Botões ou links identificados: ${contactLabels.join(', ')}.` : '';
+    const routes = [hasWhatsApp ? 'um caminho para o WhatsApp' : undefined, hasBooking ? 'agendamento' : undefined].filter(Boolean);
+    const routeSummary = routes.length ? `O site apresenta ${routes.join(' e ')}.` : 'A coleta não identificou botões de contato ou agendamento nas páginas capturadas; isso não confirma que o site não ofereça esses caminhos.';
+    return `${routeSummary}${contact}${metaPixel === false ? ' O rastreador público da Meta não foi identificado na coleta.' : ''}`;
   }
   if (category === 'instagram') {
     const signals = value.signals && typeof value.signals === 'object' ? value.signals as Record<string, unknown> : undefined;
@@ -120,6 +132,15 @@ function copyForEvidence(evidence: AssessedEvidence, category: EvidenceCategory)
   if (!value) return fallback;
 
   if (category === 'profile') {
+    if (value.present === false) {
+      return {
+        observation: 'A empresa ainda não possui um Perfil da Empresa no Google informado.',
+        possibleImpact: 'Quem pesquisa pelo serviço ou pela empresa no Google e no Maps encontra menos informações para confirmar localização, horário, contato e especialidade. Isso pode desviar a decisão para negócios que já aparecem completos.',
+        idealState: 'A empresa deveria ter um perfil verificado, com categoria correta, serviços, localização, horários, contato e um caminho direto para conversar.',
+        recommendedDirection: 'Criar e validar o Perfil da Empresa no Google, preencher as informações essenciais e conectá-lo aos demais canais da empresa.',
+        priority: 'critical',
+      };
+    }
     const rating = numberFrom(value.totalScore ?? value.nota);
     const reviews = numberFrom(value.reviewsCount ?? value.avaliacoes);
     const description = stringFrom(value.description ?? value.descricao);
@@ -142,24 +163,44 @@ function copyForEvidence(evidence: AssessedEvidence, category: EvidenceCategory)
   }
 
   if (category === 'reputation') {
+    if (value.present === false) {
+      const responses = value.targetLayout === 'responses';
+      return responses ? {
+        observation: 'Como a empresa ainda não possui perfil no Google, também não existem avaliações públicas aguardando resposta nesse canal.',
+        possibleImpact: 'Isso ainda não representa uma falha de atendimento. A oportunidade é começar com uma rotina organizada e demonstrar atenção desde os primeiros relatos recebidos.',
+        idealState: 'As primeiras avaliações deveriam receber respostas humanas, cuidadosas e coerentes com a experiência entregue.',
+        recommendedDirection: 'Definir desde a criação do perfil quem acompanhará e responderá as futuras avaliações no Google.',
+        priority: 'opportunity',
+      } : {
+        observation: 'Sem um Perfil da Empresa no Google, a empresa ainda não reúne avaliações públicas nesse canal.',
+        possibleImpact: 'Quem ainda não conhece a empresa encontra menos relatos públicos para reduzir dúvidas e comparar a experiência antes de entrar em contato.',
+        idealState: 'O perfil deveria reunir avaliações autênticas e recentes que descrevam a experiência de clientes atendidos.',
+        recommendedDirection: 'Depois de validar o perfil, criar uma rotina simples para convidar clientes satisfeitos a registrar avaliações verdadeiras no Google.',
+        priority: 'critical',
+      };
+    }
     const sample = numberFrom(value.sampleSize) ?? 0;
     const positives = numberFrom(value.positiveCount) ?? 0;
-    const responseRate = numberFrom(value.ownerResponseRate) ?? 0;
-    const recent = numberFrom(value.reviewsLast90Days) ?? 0;
+    const responses = responseNarrative(value);
     return {
-      observation: `Nas avaliações do Google, ${positives} de ${sample} avaliações analisadas são positivas e ${recent} chegaram nos últimos 90 dias. Nenhuma recebeu resposta da empresa.`,
-      possibleImpact: responseRate === 0
-        ? 'A reputação gera confiança, mas elogios e críticas sem resposta deixam de mostrar atenção, acompanhamento e posicionamento público da empresa.'
-        : 'A reputação recente ajuda a decisão, e respostas consistentes reforçam que a empresa acompanha a experiência do cliente.',
-      idealState: 'As avaliações positivas devem continuar chegando, e cada comentário relevante deveria receber uma resposta humana que reforce atendimento, confiança e disponibilidade.',
-      recommendedDirection: responseRate === 0
-        ? 'Criar uma rotina de respostas no Perfil da Empresa no Google, começando pelas avaliações recentes e pelas críticas sem retorno.'
-        : 'Manter a frequência de avaliações e responder de forma consistente no Perfil da Empresa no Google.',
-      priority: responseRate === 0 ? 'important' : 'strength',
+      observation: `Nas avaliações do Google, ${positives} de ${sample} avaliações analisadas são positivas e ${numberFrom(value.reviewsLast90Days) ?? 0} chegaram nos últimos 90 dias. ${responses.observation}`,
+      possibleImpact: responses.possibleImpact,
+      idealState: responses.idealState,
+      recommendedDirection: responses.recommendedDirection,
+      priority: responses.priority,
     };
   }
 
   if (category === 'media') {
+    if (value.present === false) {
+      return {
+        observation: 'Sem um perfil no Google, quem pesquisa ainda não encontra fotos, serviços nem atualizações publicadas pela empresa nesse canal.',
+        possibleImpact: 'A pessoa precisa depender do Instagram para enxergar estrutura, atividade e serviços, enquanto outros negócios podem apresentar essas informações diretamente na busca.',
+        idealState: 'O perfil deveria mostrar fotos reais, serviços, estrutura e sinais recentes de atividade para reduzir dúvidas antes do contato.',
+        recommendedDirection: 'Preparar um acervo inicial de fotos e publicar as primeiras atualizações assim que o perfil estiver validado.',
+        priority: 'important',
+      };
+    }
     const photos = numberFrom(value.photoCount) ?? 0;
     const updates = numberFrom(value.updateCount) ?? 0;
     return {
@@ -215,22 +256,50 @@ function copyForEvidence(evidence: AssessedEvidence, category: EvidenceCategory)
       };
     }
     const pages = Array.isArray(value.pages) ? value.pages as Array<Record<string, unknown>> : [];
-    const hasWhatsApp = pages.some((page) => page.hasWhatsApp === true);
-    const hasBooking = pages.some((page) => page.hasBooking === true);
+    const nap = value.napConsistency && typeof value.napConsistency === 'object' ? value.napConsistency as Record<string, unknown> : {};
+    const actions = Array.isArray(nap.contactActions) ? nap.contactActions as Array<Record<string, unknown>> : pages.flatMap((page) => Array.isArray(page.contactActions) ? page.contactActions as Array<Record<string, unknown>> : []);
+    const hasWhatsApp = pages.some((page) => page.hasWhatsApp === true) || actions.some((action) => action.kind === 'whatsapp');
+    const hasBooking = pages.some((page) => page.hasBooking === true) || actions.some((action) => action.kind === 'booking');
+    const hasPhone = actions.some((action) => action.kind === 'phone');
+    const hasContact = actions.some((action) => action.kind === 'contact');
     const structuredData = pages.some((page) => page.structuredData === true);
-    const strong = hasWhatsApp && hasBooking;
+    const addressDiffers = nap.addressMatchesProfile === false;
+    const phoneDiffers = nap.phoneMatchesProfile === false;
+    const hasDiscrepancy = addressDiffers || phoneDiffers;
+    const hasContactRoute = hasWhatsApp || hasBooking || hasPhone || hasContact;
+    const strong = hasContactRoute && !addressDiffers && !phoneDiffers;
+    const bookingLabel = actions.find((action) => action.kind === 'booking')?.label;
+    const contactDescription = [
+      hasWhatsApp ? 'WhatsApp' : undefined,
+      hasBooking ? `agendamento${bookingLabel ? ` pelo botão “${bookingLabel}”` : ''}` : undefined,
+      hasPhone ? 'telefone' : undefined,
+      hasContact ? 'contato' : undefined,
+    ].filter(Boolean).join(' e ');
+    const siteAddress = stringFrom(nap.siteAddress);
+    const observationParts = [
+      hasContactRoute ? `A página apresenta caminho para ${contactDescription || 'contato'}.` : 'A coleta não identificou botões de contato nas páginas capturadas; isso não confirma que eles estejam ausentes do site.',
+      addressDiffers ? `${siteAddress ? `O site informa ${siteAddress}. ` : ''}Esse endereço diverge do Perfil do Google.` : undefined,
+      phoneDiffers ? 'O botão de WhatsApp leva a um número diferente do indicado no Perfil do Google.' : undefined,
+    ].filter((part): part is string => Boolean(part));
+    const observation = observationParts.join(' ');
     return {
-      observation: `O site apresenta WhatsApp e caminhos de contato${structuredData ? ', além de informações organizadas para os mecanismos de busca' : ''}.`,
-      possibleImpact: strong
-        ? 'Esse caminho facilita a passagem entre o interesse em um imóvel e a conversa com a empresa.'
-        : 'Sem um próximo passo visível, parte dos visitantes pode sair antes de iniciar uma conversa.',
-      idealState: strong
-        ? 'O site deve manter o contato acessível e explicar com clareza por que escolher a empresa em cada página importante.'
-        : 'Cada página importante deveria conduzir com clareza até o WhatsApp ou formulário de contato.',
-      recommendedDirection: strong
-        ? 'Manter os caminhos de contato e reforçar diferenciais e provas nas páginas de maior intenção comercial.'
-        : 'Tornar o WhatsApp ou formulário visível nas páginas de imóveis e serviços.',
-      priority: strong ? 'strength' : 'important',
+      observation: `${observation}${structuredData ? ' A página também contém informações organizadas para os buscadores.' : ''}`,
+      possibleImpact: hasDiscrepancy
+        ? 'Diferenças de endereço ou telefone entre o site e o Google podem gerar dúvida sobre o local ou o contato correto.'
+        : hasContactRoute
+          ? 'Os caminhos identificados ajudam a pessoa a sair da pesquisa e iniciar uma conversa ou agendar.'
+          : 'O próximo passo de contato pode ficar menos evidente para quem visita as páginas capturadas.',
+      idealState: hasDiscrepancy
+        ? 'O site e o Perfil do Google deveriam apresentar o endereço e os contatos atuais da unidade, com botões que levem ao canal correto.'
+        : hasContactRoute
+          ? 'O site deve manter os caminhos de contato acessíveis e coerentes com os dados atuais da unidade.'
+          : 'As páginas importantes deveriam mostrar com clareza como falar com a unidade ou agendar.',
+      recommendedDirection: hasDiscrepancy
+        ? 'Confirmar com a unidade qual endereço e número estão atualizados e alinhar site e Perfil do Google, preservando os botões de contato.'
+        : hasContactRoute
+          ? 'Manter os botões identificados e conferir periodicamente se continuam apontando para os canais atuais da unidade.'
+          : 'Validar manualmente as páginas e, se necessário, deixar o botão de contato mais visível.' ,
+      priority: hasDiscrepancy ? 'important' : strong ? 'strength' : 'opportunity',
     };
   }
 
@@ -265,6 +334,9 @@ export function generateFindings(evidence: AssessedEvidence[]): Finding[] {
     .map((item): Finding => {
       const category = inferCategory(item);
       const content = copyForEvidence(item, category);
+      const value = item.value && typeof item.value === 'object' && !Array.isArray(item.value)
+        ? item.value as Record<string, unknown>
+        : undefined;
       return {
         id: findingId(item.id),
         analysisId: item.analysisId,
@@ -277,6 +349,8 @@ export function generateFindings(evidence: AssessedEvidence[]): Finding[] {
         recommendedDirection: simplifyTechnicalLanguage(content.recommendedDirection),
         approved: true,
         position: 0,
+        ...(typeof value?.targetLayout === 'string' ? { targetLayout: value.targetLayout as Finding['targetLayout'] } : {}),
+        ...(typeof value?.headline === 'string' ? { headline: value.headline } : {}),
       };
     });
 

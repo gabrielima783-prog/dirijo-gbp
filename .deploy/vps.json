@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "dirijo-gbp"
+  },
+  "repository": {
+    "remote": "origin",
+    "branch": "main",
+    "url": "https://github.com/gabrielima783-prog/dirijo-gbp"
+  },
+  "target": {
+    "sshAlias": "central-ops-ovh",
+    "deployUser": "ubuntu",
+    "installRoot": "/srv/dirijo-gbp",
+    "architecture": "amd64",
+    "environments": {
+      "production": {
+        "composeProject": "dirijo-gbp-production",
+        "installRoot": "/srv/dirijo-gbp",
+        "visibility": "public",
+        "internalHealth": [
+          "http://127.0.0.1:3006/api/health"
+        ],
+        "externalHealth": [
+          "https://gbp.viradadonutri.com.br/api/health"
+        ]
+      }
+    },
+    "neighborHealth": [
+      "https://ops.viradadonutri.com.br/health",
+      "https://mapeia.viradadonutri.com.br/api/health",
+      "https://threads.viradadonutri.com.br/health",
+      "https://alertas.viradadonutri.com.br/health"
+    ],
+    "minFreeMiB": 10240,
+    "minFreePercent": 15,
+    "minFreeInodePercent": 15,
+    "cleanupBelowFreePercent": 25
+  },
+  "checks": {
+    "local": [
+      [
+        "npm",
+        "run",
+        "check"
+      ]
+    ]
+  },
+  "release": {
+    "adapter": "infra/vps-deploy.sh"
+  }
+}

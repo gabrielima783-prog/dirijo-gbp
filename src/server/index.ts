@@ -5,6 +5,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { ApifyClient } from "./adapters/apify.js";
 import { OpenAIDiagnosticClient } from "./adapters/openai.js";
 import { PageSpeedClient, WebsiteAuditor } from "./adapters/website.js";
+import { AuthStore } from "./auth.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDatabase } from "./db.js";
@@ -17,7 +18,10 @@ const projectDir = resolve(process.cwd());
 const baseConfig = loadConfig(projectDir);
 const settings = new LocalSettingsStore(baseConfig, resolve(projectDir, "data"));
 const config = settings.resolve();
-const repository = new AnalysisRepository(createDatabase({ filename: config.databaseFile }));
+const database = createDatabase({ filename: config.databaseFile });
+const repository = new AnalysisRepository(database);
+repository.recoverInterrupted();
+const auth = new AuthStore(database);
 function integrations(current: ServerConfig) {
   return {
     apify: current.apifyToken ? new ApifyClient({ token: current.apifyToken, actorId: current.apifyActorId }) : undefined,
@@ -31,8 +35,9 @@ const service = new AnalysisService({
   ...integrations(config),
   website: new WebsiteAuditor(), costLimitUsd: config.costLimitUsd,
 });
-const baseUrl = process.env.NODE_ENV === "production" ? `http://${config.host}:${config.port}` : "http://127.0.0.1:5173";
+const baseUrl = process.env.NODE_ENV === "production" ? `http://127.0.0.1:${config.port}` : "http://127.0.0.1:5173";
 const app = createApp({
+  auth,
   service,
   repository,
   config,

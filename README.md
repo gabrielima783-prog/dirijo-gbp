@@ -1,6 +1,6 @@
 # Dirijo GBP
 
-Painel local para transformar dados públicos do Perfil da Empresa no Google, site e Instagram em um diagnóstico comercial revisável, uma apresentação 16:9 e um PDF da Dirijo.
+Painel local para transformar dados públicos do Perfil da Empresa no Google, site e Instagram em um diagnóstico comercial revisável, uma apresentação 16:9 e um PDF da Dirijo. Quando a empresa ainda não possui perfil no Google, o painel registra essa ausência e mostra o impacto comercial da descoberta local, das avaliações e dos sinais públicos que deixam de existir.
 
 ## O que a primeira versão entrega
 
@@ -84,7 +84,7 @@ Abra `http://127.0.0.1:8787`.
 
 ## Fluxo de uso
 
-1. Crie uma análise com o link do Maps e, quando houver, informe o site correto e o Instagram.
+1. Crie uma análise com os canais disponíveis. O Maps pode ficar vazio quando o cadastro não existe; nesse caso, informe o nome da empresa e ao menos o Instagram, o site ou observações públicas.
 2. Confira a estimativa antes de iniciar a coleta.
 3. Acompanhe cada fonte. Uma falha não remove resultados já coletados.
 4. Abra diretamente a apresentação ou baixe o PDF 16:9 e o PDF para celular.
@@ -92,7 +92,7 @@ Abra `http://127.0.0.1:8787`.
 
 O limite padrão é US$ 1 por análise. Acima dele, a continuação exige confirmação explícita no painel.
 
-São aceitos links completos do Google Maps, links curtos `maps.app.goo.gl` e links de compartilhamento `share.google`. Estes últimos são convertidos automaticamente em uma busca válida do Maps antes da coleta.
+São aceitos links completos do Google Maps, links curtos `maps.app.goo.gl` e links de compartilhamento `share.google`. A conversão de `share.google` é local, sem consulta paga adicional. Se o Google bloquear essa abertura, abra a ficha diretamente no Google Maps e use Compartilhar > Copiar link, ou copie a URL completa da ficha na barra do navegador. Esse formato evita a etapa de conversão do link compartilhado.
 
 A apresentação usa de 8 a 10 páginas: base do Google, páginas opcionais de site e Instagram, prioridades específicas e um convite final para conversa com a Dirijo. Vermelho identifica correção confirmada, amarelo indica atenção ou oportunidade e verde destaca ponto forte.
 

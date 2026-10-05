@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { AuthStore } from '../src/server/auth.js';
+import { createDatabase } from '../src/server/db.js';
+import { createApp } from '../src/server/app.js';
+import { AnalysisRepository } from '../src/server/repository.js';
+import { AnalysisService } from '../src/server/service.js';
+import { loadConfig } from '../src/server/config.js';
+
+test('sessions, first password, operator restrictions, scoped rendering and revocation',async()=>{
+ const db=createDatabase({filename:':memory:'});const repository=new AnalysisRepository(db);const auth=new AuthStore(db,false);
+ auth.provision({email:'operator@example.com',name:'Operator',role:'operator',password:'Initial-password-123'});
+ const app=createApp({auth,repository,service:new AnalysisService({repository,costLimitUsd:1}),config:loadConfig('/tmp/gbp-auth-empty')});
+ const origin='http://localhost';
+ const request=(path:string,method='GET',cookie='',body?:unknown)=>app.request(path,{method,headers:{origin,cookie,'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
+ assert.equal((await request('/api/analyses')).status,401);
+ assert.equal((await app.request('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).status,403);
+ const login=await request('/api/auth/login','POST','',{email:'operator@example.com',password:'Initial-password-123'});
+ assert.equal(login.status,200);const cookie=login.headers.get('set-cookie')!.split(';')[0]!;
+ assert.ok(login.headers.get('set-cookie')!.includes('HttpOnly'));
+ assert.equal((await request('/api/analyses','GET',cookie)).status,403);
+ assert.equal((await request('/api/auth/password','POST',cookie,{currentPassword:'Initial-password-123',newPassword:'New-private-password-123'})).status,200);
+ assert.equal((await request('/api/analyses','GET',cookie)).status,200);
+ assert.equal((await request('/api/settings','GET',cookie)).status,403);
+ assert.equal((await request('/api/analyses/missing','DELETE',cookie)).status,403);
+ assert.equal((await request('/api/analyses/missing/collect','POST',cookie,{confirmOverBudget:true})).status,403);
+ const renderer=auth.renderer('one-analysis'); const rendererCookie=`gbp_session=${renderer.token}`;
+ assert.equal((await request('/api/auth/me','GET',rendererCookie)).status,200);
+ assert.equal((await request('/api/analyses','GET',rendererCookie)).status,401);
+ assert.equal((await request('/api/analyses/other-analysis','GET',rendererCookie)).status,401);
+ assert.equal((await request('/api/analyses/one-analysis','GET',rendererCookie)).status,404);
+ renderer.revoke();assert.equal((await request('/api/auth/me','GET',rendererCookie)).status,401);
+ auth.provision({email:'operator@example.com',name:'Operator',role:'operator',active:false});
+ assert.equal((await request('/api/analyses','GET',cookie)).status,401);
+ assert.deepEqual(await (await request('/api/health')).json(),{ok:true,running:true});db.close();
+});

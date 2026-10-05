@@ -1,0 +1,11 @@
+.git
+node_modules
+dist
+dist-web
+data
+.env
+.env.*
+!.env.example
+*.sqlite*
+*.log
+.DS_Store

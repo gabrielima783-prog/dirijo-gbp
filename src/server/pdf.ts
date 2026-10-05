@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 export type PresentationFormat = 'desktop' | 'mobile';
 
 export interface PdfExportOptions {
+  sessionToken?: string;
   presentationUrl: string;
   outputPath: string;
   format?: PresentationFormat;
@@ -13,6 +14,8 @@ export interface PdfExportOptions {
 }
 
 export interface AnalysisPdfExportOptions {
+  sessionToken?: string;
+  compact?: boolean;
   analysisId: string;
   outputPath: string;
   baseUrl?: string;
@@ -69,8 +72,8 @@ async function validateRenderedSlides(
 ): Promise<number> {
   const slideLocator = page.locator('[data-slide]');
   const slideCount = await slideLocator.count();
-  if (slideCount < 8 || slideCount > 10) {
-    throw new Error(`A apresentação renderizada precisa ter entre 8 e 10 slides; recebeu ${slideCount}`);
+  if (slideCount !== 2 && (slideCount < 8 || slideCount > 10)) {
+    throw new Error(`A apresentação renderizada precisa ter 2 páginas ou entre 8 e 10 slides; recebeu ${slideCount}`);
   }
   if (expectedSlideCount !== undefined && slideCount !== expectedSlideCount) {
     throw new Error(`A apresentação renderizou ${slideCount} slides; eram esperados ${expectedSlideCount}`);
@@ -94,6 +97,12 @@ async function validateRenderedSlides(
     if (overflow.horizontal > 2 || overflow.vertical > 2) {
       throw new Error(`O slide ${index + 1} possui conteúdo cortado ou fora da página`);
     }
+    const compactOverlap = await slide.evaluate((element) => {
+      const content = element.querySelector('.compact-page-content');
+      const footer = element.querySelector('.compact-page-footer');
+      return content && footer ? content.getBoundingClientRect().bottom > footer.getBoundingClientRect().top - 12 : false;
+    });
+    if (compactOverlap) throw new Error(`A página ${index + 1} do diagnóstico possui conteúdo sobreposto ao rodapé`);
   }
   return slideCount;
 }
@@ -122,6 +131,7 @@ export async function exportPresentationPdf(options: PdfExportOptions): Promise<
       viewport: pageSize.viewport,
       deviceScaleFactor: 1,
     });
+    if (options.sessionToken) await page.context().addCookies([{name:"gbp_session",value:options.sessionToken,url:presentationUrl.origin,httpOnly:true,sameSite:"Lax",expires:Math.floor(Date.now()/1000)+120}]);
     page.setDefaultTimeout(timeoutMs);
     await page.emulateMedia({ media: 'print', colorScheme: 'light', reducedMotion: 'reduce' });
     const response = await page.goto(presentationUrl.toString(), {
@@ -172,13 +182,14 @@ export async function exportPresentationPdf(options: PdfExportOptions): Promise<
 
 export async function exportAnalysisPdf(options: AnalysisPdfExportOptions): Promise<PdfExportResult> {
   const baseUrl = options.baseUrl ?? 'http://127.0.0.1:8787';
-  const format = options.format ?? 'desktop';
+  const format = options.compact ? 'mobile' : options.format ?? 'desktop';
   const presentationUrl = new URL(
-    `/presentation/${encodeURIComponent(options.analysisId)}?print=1&format=${format}`,
+    `/presentation/${encodeURIComponent(options.analysisId)}?print=1&format=${format}&view=${options.compact ? 'compact' : 'complete'}`,
     baseUrl,
   ).toString();
   return exportPresentationPdf({
     presentationUrl,
+    ...(options.sessionToken ? {sessionToken:options.sessionToken} : {}),
     outputPath: options.outputPath,
     format,
     ...(options.expectedSlideCount === undefined

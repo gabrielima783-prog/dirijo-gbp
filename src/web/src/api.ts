@@ -1,5 +1,6 @@
 import type { Analysis, AnalysisInput, Finding, PublicSettings, SettingsProvider, SettingsUpdate, SlideSpec, SourceKey } from './types';
 
+export interface AuthUser { id:string; email?:string; name:string; role:'admin'|'operator'|'renderer'; mustChangePassword:boolean }
 const base = '/api';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -7,6 +8,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
+  if (response.status === 401) dispatchEvent(new Event('gbp-session-expired'));
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { error?: string; message?: string } | null;
     throw new Error(payload?.message || payload?.error || `A solicitação falhou (${response.status}).`);
@@ -16,6 +18,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  me: () => request<AuthUser>('/auth/me'),
+  login: (email:string,password:string) => request<AuthUser>('/auth/login',{method:'POST',body:JSON.stringify({email,password})}),
+  logout: () => request<void>('/auth/logout',{method:'POST'}),
+  password: (currentPassword:string,newPassword:string) => request<AuthUser>('/auth/password',{method:'POST',body:JSON.stringify({currentPassword,newPassword})}),
   settings: () => request<PublicSettings>('/settings'),
   updateSettings: (input: SettingsUpdate) => request<PublicSettings>('/settings', { method: 'PUT', body: JSON.stringify(input) }),
   testSetting: (provider: SettingsProvider) => request<{ ok: boolean; message: string }>(`/settings/test/${provider}`, { method: 'POST' }),

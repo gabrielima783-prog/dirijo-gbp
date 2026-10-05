@@ -2,6 +2,7 @@ import type { Evidence, Finding, FindingPriority, SlideLayout, SlideSpec } from 
 import type { FetchLike } from './apify.js';
 import { buildAIDiagnosticBrief, type AIDiagnosticBrief } from '../../core/ai-brief.js';
 import { assertPlainLanguage, assertSafeClaim, inferCategory, simplifyTechnicalLanguage } from '../../core/content.js';
+import { responseNarrative, assertResponseFacts } from '../../core/review-responses.js';
 import { generateFindings } from '../../core/diagnostic.js';
 import { buildPresentation } from '../../core/slides.js';
 import type { AssessedEvidence, DiagnosticContext } from '../../core/types.js';
@@ -144,6 +145,10 @@ Cada achado precisa:
 
 Use exemplos e temas do negócio quando eles estiverem comprovados. Reconheça pontos fortes. Não invente um defeito para preencher a estrutura. Para respostas às avaliações, use targetLayout responses. Para a leitura geral das avaliações, use reputation.
 Se a amostra tiver zero avaliações, trate a ausência de avaliações como problema de reputação, mas trate o bloco de respostas apenas como preparação: não existem comentários ignorados e isso não é uma falha da empresa.
+Se as evidências indicarem que a empresa não possui Perfil da Empresa no Google, explique com clareza o que ela perde em descoberta local, informações públicas, avaliações e conteúdo visual. Não escreva como se um perfil existente tivesse sido coletado.
+
+Na análise do site, qualquer botão ou link identificado para WhatsApp, telefone, contato ou agendamento comprova que existe um caminho de contato. Nunca diga que a unidade não tem contato, telefone, WhatsApp ou agendamento quando uma dessas ações estiver nas evidências. "Não identificado pela coleta" não significa que o dado esteja ausente. Não transforme uma comparação inconclusiva em ausência.
+Quando a coleta identificar um nome, endereço ou número diferente do Perfil do Google, diga que os dados divergem e precisam ser confirmados com a unidade. Não recomende criar ou adicionar um contato que já aparece no site. Preserve os rótulos visíveis dos botões e não afirme que telefone ou endereço conferem sem confirmação explícita nas evidências.
 
 Não afirme receita perdida, crescimento garantido, posição exata no Google ou causalidade absoluta. Não exponha identidade de avaliadores.
 
@@ -155,6 +160,7 @@ Devolva exatamente um achado para cada item de findingLayouts. Preserve targetLa
 
 Não acrescente informações externas. Não afirme receita perdida, crescimento garantido, posição exata no Google ou causalidade absoluta. Não exponha identidade de avaliadores.
 Se a amostra tiver zero avaliações, nunca diga que a empresa deixou clientes sem resposta. Explique que ainda não há comentários para responder e apresente a criação da rotina como oportunidade futura.
+Na análise do site, qualquer botão ou link identificado para WhatsApp, telefone, contato ou agendamento comprova que existe um caminho de contato. Nunca diga que a unidade não tem contato, telefone, WhatsApp ou agendamento quando uma dessas ações estiver nas evidências. "Não identificado pela coleta" não significa que o dado esteja ausente. Quando nome, endereço ou telefone identificado diferir do Perfil do Google, descreva a divergência como algo a confirmar. Não recomende adicionar um botão de contato que já foi identificado.
 
 Escreva para uma pessoa leiga. Nunca repita nomes internos de campos ou termos técnicos. Não use ownerResponseCount, ownerResponseRate, napConsistency, HTTPS, sitemap, structured data, score, reviews, business account, posts, CTA, NAP, canonical, schema, LCP, FCP, CLS, engajamento, prova social, proatividade, lead, CRM, rastreamento ou SEO. Prefira frases naturais como "nenhuma avaliação analisada recebeu resposta", "o site usa conexão segura", "o teste no celular apresentou bom desempenho", "pessoas interessadas" e "acompanhamento dos resultados".`;
 
@@ -211,26 +217,96 @@ function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence
       approved: false,
       position,
     };
+    const reviewEvidence = compatibleEvidence.find((item) => item.source === 'reviews');
+    const reviewValue = reviewEvidence?.value && typeof reviewEvidence.value === 'object' ? reviewEvidence.value as Record<string, unknown> : undefined;
+    if (reviewValue) {
+      const safe = responseNarrative(reviewValue);
+      if (layout === 'responses') Object.assign(finding, safe);
+      else {
+        try { assertResponseFacts([finding.headline, finding.observation, finding.possibleImpact, finding.idealState, finding.recommendedDirection].join(' '), reviewValue); }
+        catch {
+          const safeFinding = fallback.find((item) => item.evidenceIds.includes(reviewEvidence!.id));
+          if (safeFinding) Object.assign(finding, { observation: safeFinding.observation, possibleImpact: safeFinding.possibleImpact, idealState: safeFinding.idealState, recommendedDirection: safeFinding.recommendedDirection, priority: safeFinding.priority, headline: 'Avaliações no Google: o que a amostra permite confirmar.' });
+        }
+      }
+    }
+    if (layout === 'website') {
+      const website = compatibleEvidence.find((item) => item.source === 'website');
+      const websiteValue = website?.value && typeof website.value === 'object' && !Array.isArray(website.value) ? website.value as Record<string, unknown> : undefined;
+      const pages = Array.isArray(websiteValue?.pages) ? websiteValue.pages as Array<Record<string, unknown>> : [];
+      const actions = [
+        ...pages.flatMap((page) => Array.isArray(page.contactActions) ? page.contactActions as Array<Record<string, unknown>> : []),
+        ...(websiteValue?.napConsistency && typeof websiteValue.napConsistency === 'object'
+          ? Array.isArray((websiteValue.napConsistency as Record<string, unknown>).contactActions)
+            ? (websiteValue.napConsistency as Record<string, unknown>).contactActions as Array<Record<string, unknown>> : []
+          : []),
+      ];
+      const hasContactRoute = actions.length > 0 || pages.some((page) => page.hasWhatsApp === true || page.hasBooking === true || page.hasCallToAction === true);
+      const nap = websiteValue?.napConsistency && typeof websiteValue.napConsistency === 'object' ? websiteValue.napConsistency as Record<string, unknown> : {};
+      const hasConfirmedMismatch = nap.addressMatchesProfile === false || nap.phoneMatchesProfile === false;
+      const proposedText = [finding.observation, finding.possibleImpact, finding.idealState, finding.recommendedDirection].join(' ');
+      const deniesVisibleContact = /\b(?:não|nao)\b[^.!?]{0,100}\b(?:whats\s*app|contato|telefone|agendamento|bot[aã]o|canal de contato)\b/iu.test(proposedText);
+      const recommendsAddingVisibleContact = /\b(?:criar|adicionar|incluir|inserir|disponibilizar|tornar vis[ií]vel)\b[^.!?]{0,100}\b(?:whats\s*app|contato|telefone|agendamento|bot[aã]o)\b/iu.test(finding.recommendedDirection);
+      if (website && (hasConfirmedMismatch || (hasContactRoute && (deniesVisibleContact || recommendsAddingVisibleContact)))) {
+        const safeWebsiteCopy = fallback.find((item) => item.category === 'website' && item.evidenceIds.includes(website.id));
+        if (safeWebsiteCopy) Object.assign(finding, {
+          observation: safeWebsiteCopy.observation,
+          possibleImpact: safeWebsiteCopy.possibleImpact,
+          idealState: safeWebsiteCopy.idealState,
+          recommendedDirection: safeWebsiteCopy.recommendedDirection,
+          priority: safeWebsiteCopy.priority,
+        });
+      }
+    }
     const noPublicReviews = ['reputation', 'responses'].includes(layout) && compatibleEvidence.some((item) => {
       const value = item.value && typeof item.value === 'object' && !Array.isArray(item.value) ? item.value as Record<string, unknown> : undefined;
       return value?.sampleSize === 0;
     });
-    if (noPublicReviews && layout === 'reputation') Object.assign(finding, {
-      headline: 'Avaliações no Google: a clínica ainda não possui relatos públicos.',
-      priority: 'important',
-      observation: 'Não foram encontradas avaliações públicas no Perfil da Empresa no Google.',
-      possibleImpact: 'Quem ainda não conhece a clínica encontra menos relatos públicos para reduzir dúvidas antes de marcar um atendimento.',
-      idealState: 'O perfil deveria reunir avaliações autênticas e recentes que descrevam o atendimento e a experiência oferecida.',
-      recommendedDirection: 'Criar uma rotina simples para convidar pacientes satisfeitos a registrar avaliações verdadeiras no Google.',
+    const missingGoogleProfile = ['profile', 'reputation', 'responses', 'media'].includes(layout) && compatibleEvidence.some((item) => {
+      const value = item.value && typeof item.value === 'object' && !Array.isArray(item.value) ? item.value as Record<string, unknown> : undefined;
+      return item.source === 'maps' && value?.present === false;
     });
-    if (noPublicReviews && layout === 'responses') Object.assign(finding, {
+    if (missingGoogleProfile && layout === 'profile') Object.assign(finding, {
+      headline: 'Google: a empresa ainda não possui sua principal vitrine nas buscas locais.',
+      priority: 'critical',
+      observation: 'A empresa ainda não possui um Perfil da Empresa no Google informado.',
+      possibleImpact: 'Quem pesquisa pelo serviço ou pela empresa no Google e no Maps encontra menos informações para confirmar localização, horário, contato e especialidade. Isso pode desviar a decisão para negócios que já aparecem completos.',
+      idealState: 'A empresa deveria ter um perfil verificado, com categoria correta, serviços, localização, horários, contato e um caminho direto para conversar.',
+      recommendedDirection: 'Criar e validar o Perfil da Empresa no Google, preencher as informações essenciais e conectá-lo aos demais canais da empresa.',
+    });
+    if (missingGoogleProfile && layout === 'reputation') Object.assign(finding, {
+      headline: 'Avaliações no Google: hoje não existe uma reputação pública para apoiar a decisão.',
+      priority: 'critical',
+      observation: 'Sem um Perfil da Empresa no Google, a empresa ainda não reúne avaliações públicas nesse canal.',
+      possibleImpact: 'Quem ainda não conhece a empresa encontra menos relatos públicos para reduzir dúvidas e comparar a experiência antes de entrar em contato.',
+      idealState: 'O perfil deveria reunir avaliações autênticas e recentes que descrevam a experiência de clientes atendidos.',
+      recommendedDirection: 'Depois de validar o perfil, criar uma rotina simples para convidar clientes satisfeitos a registrar avaliações verdadeiras no Google.',
+    });
+    if (missingGoogleProfile && layout === 'responses') Object.assign(finding, {
       headline: 'Respostas no Google: a rotina pode nascer junto com as primeiras avaliações.',
       priority: 'opportunity',
-      observation: 'Como ainda não há avaliações públicas, também não existem comentários aguardando resposta da clínica.',
-      possibleImpact: 'Isso não representa uma falha atual. A oportunidade é começar corretamente e demonstrar atenção desde as primeiras avaliações recebidas.',
-      idealState: 'As primeiras avaliações deveriam receber respostas humanas, cuidadosas e coerentes com o atendimento da clínica.',
-      recommendedDirection: 'Definir desde agora quem acompanhará e responderá as futuras avaliações no Perfil da Empresa no Google.',
+      observation: 'Como a empresa ainda não possui perfil no Google, também não existem avaliações públicas aguardando resposta nesse canal.',
+      possibleImpact: 'Isso ainda não representa uma falha de atendimento. A oportunidade é começar com uma rotina organizada e demonstrar atenção desde os primeiros relatos recebidos.',
+      idealState: 'As primeiras avaliações deveriam receber respostas humanas, cuidadosas e coerentes com a experiência entregue.',
+      recommendedDirection: 'Definir desde a criação do perfil quem acompanhará e responderá as futuras avaliações no Google.',
     });
+    if (missingGoogleProfile && layout === 'media') Object.assign(finding, {
+      headline: 'Fotos no Google: quem pesquisa ainda não encontra sinais visuais da empresa.',
+      priority: 'important',
+      observation: 'Sem um perfil no Google, quem pesquisa ainda não encontra fotos, serviços nem atualizações publicadas pela empresa nesse canal.',
+      possibleImpact: 'A pessoa precisa depender do Instagram para enxergar estrutura, atividade e serviços, enquanto outros negócios podem apresentar essas informações diretamente na busca.',
+      idealState: 'O perfil deveria mostrar fotos reais, serviços, estrutura e sinais recentes de atividade para reduzir dúvidas antes do contato.',
+      recommendedDirection: 'Preparar um acervo inicial de fotos e publicar as primeiras atualizações assim que o perfil estiver validado.',
+    });
+    if (noPublicReviews && !missingGoogleProfile && layout === 'reputation') Object.assign(finding, {
+      headline: 'Avaliações no Google: a coleta não trouxe relatos para análise.',
+      priority: 'important',
+      observation: 'A coleta não trouxe avaliações para análise. Isso não confirma ausência de avaliações no Perfil da Empresa no Google.',
+      possibleImpact: 'Sem uma amostra coletada, não é possível avaliar os relatos públicos ou a rotina de respostas.',
+      idealState: 'O perfil deveria reunir avaliações autênticas e recentes que descrevam o atendimento e a experiência oferecida.',
+      recommendedDirection: 'Conferir as avaliações diretamente no Google e repetir a coleta antes de definir ações.',
+    });
+    if (noPublicReviews && !missingGoogleProfile && layout === 'responses') Object.assign(finding, responseNarrative(reviewValue));
     [finding.headline ?? '', finding.observation, finding.possibleImpact, finding.idealState, finding.recommendedDirection].forEach((text) => {
       assertSafeClaim(text); assertPlainLanguage(text);
     });
@@ -259,13 +335,13 @@ function selectSupportingBrief(brief: AIDiagnosticBrief, findings: Finding[]): A
 
 function makePresentationContext(companyName: string, evidence: Evidence[]): DiagnosticContext {
   const sourceUrl = evidence.find((item) => item.source === 'maps')?.sourceUrl;
-  const mapsUrl = sourceUrl && /^https?:\/\//i.test(sourceUrl) ? sourceUrl : 'https://www.google.com/maps';
+  const mapsUrl = sourceUrl && /^https?:\/\//i.test(sourceUrl) ? sourceUrl : undefined;
   const websiteUrl = evidence.find((item) => item.source === 'website' || item.source === 'pagespeed')?.sourceUrl;
   const instagramUrl = evidence.find((item) => item.source === 'instagram')?.sourceUrl;
   return {
     analysisId: evidence[0]?.analysisId ?? 'analysis',
     companyName,
-    input: { mapsUrl, companyName, ...(websiteUrl ? { websiteUrl } : {}), ...(instagramUrl ? { instagramUrl } : {}) },
+    input: { ...(mapsUrl ? { mapsUrl } : {}), companyName, ...(websiteUrl ? { websiteUrl } : {}), ...(instagramUrl ? { instagramUrl } : {}) },
     evidence: evidence as AssessedEvidence[],
     generatedAt: new Date().toISOString(),
   };

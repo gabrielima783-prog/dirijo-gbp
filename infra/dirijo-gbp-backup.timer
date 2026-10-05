@@ -1,0 +1,10 @@
+[Unit]
+Description=Dirijo GBP daily backup
+
+[Timer]
+OnCalendar=*-*-* 06:10:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

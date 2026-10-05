@@ -15,6 +15,15 @@ const parse = <T>(value: unknown, fallback: T): T => {
 export class AnalysisRepository {
   constructor(readonly db: DatabaseSync) {}
 
+  recoverInterrupted(): number {
+    const now = new Date().toISOString();
+    return this.transaction(() => {
+      this.db.prepare("UPDATE source_runs SET status='failed', error=?, updated_at=? WHERE status='running'")
+        .run("Execução interrompida por reinício. Revise e tente novamente manualmente.", now);
+      return Number(this.db.prepare("UPDATE analyses SET status='failed', updated_at=? WHERE status='collecting'").run(now).changes);
+    });
+  }
+
   private transaction<T>(operation: () => T): T {
     this.db.exec("BEGIN IMMEDIATE");
     try {

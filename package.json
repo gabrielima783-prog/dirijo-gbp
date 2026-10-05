@@ -10,7 +10,7 @@
     "dev": "concurrently -k -n api,web -c cyan,yellow \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch src/server/index.ts",
     "dev:web": "vite --host 127.0.0.1",
-    "build": "tsc -p tsconfig.server.json && vite build",
+    "build": "tsc -p tsconfig.web.json && tsc -p tsconfig.server.json && vite build",
     "start": "node scripts/start.mjs",
     "demo:seed": "tsx scripts/seed-demo.ts",
     "export:distribution": "node scripts/exportar-distribuicao.mjs",

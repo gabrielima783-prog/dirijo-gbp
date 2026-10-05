@@ -1,5 +1,6 @@
 import { compactText, humanizeValue, inferCategory } from './content.js';
 import type { AssessedEvidence, DiagnosticContext, Finding, PresentationSpec, SlideLayout, SlideSpec } from './types.js';
+import { responseNarrative } from './review-responses.js';
 import { validatePresentation } from './validation.js';
 
 const BRAND = {
@@ -46,6 +47,13 @@ function audienceTerms(context: DiagnosticContext): { person: string; action: st
     return { person: 'paciente', action: 'agendar' };
   }
   return { person: 'cliente', action: 'entrar em contato' };
+}
+
+function isGoogleProfileMissing(context: DiagnosticContext): boolean {
+  return context.evidence.some((item) => {
+    const value = item.value && typeof item.value === 'object' && !Array.isArray(item.value) ? item.value as Record<string, unknown> : undefined;
+    return item.source === 'maps' && inferCategory(item) === 'profile' && value?.present === false;
+  });
 }
 
 function evidenceForLayout(layout: SlideLayout, evidence: AssessedEvidence[]): AssessedEvidence[] {
@@ -108,7 +116,7 @@ function makeSlide(context: DiagnosticContext, position: number, layout: SlideLa
   const evidence = evidenceForLayout(layout, context.evidence);
   const related = findingsForLayout(layout, findings);
   const selected = related[0] ?? fallbackFinding(layout, evidence);
-  const resolvedTitle = selected.headline?.trim() || title;
+  const resolvedTitle = layout === 'responses' && evidence.some((item) => item.source === 'reviews') ? title : selected.headline?.trim() || title;
   const narrative = narrativeForLayout(layout, evidence, related, selected);
   const source = evidence.length ? sources(evidence) : undefined;
   const body = narrativeBody({ ...narrative, ...(source ? { source } : {}) });
@@ -122,7 +130,7 @@ function narrativeForLayout(layout: SlideLayout, evidence: AssessedEvidence[], r
     ideal: selected.idealState,
     direction: selected.recommendedDirection,
   };
-  if (selected.targetLayout || selected.headline) return defaultNarrative;
+  if ((selected.targetLayout || selected.headline) && layout !== 'responses') return defaultNarrative;
   const reviews = evidence.find((item) => item.source === 'reviews')?.value as Record<string, unknown> | undefined;
   if (layout === 'reputation' && reviews) {
     const sample = Number(reviews.sampleSize ?? 0);
@@ -138,14 +146,8 @@ function narrativeForLayout(layout: SlideLayout, evidence: AssessedEvidence[], r
     };
   }
   if (layout === 'responses' && reviews) {
-    const sample = Number(reviews.sampleSize ?? 0);
-    const responses = Number(reviews.ownerResponseCount ?? 0);
-    return {
-      issue: `Das ${sample} avaliações analisadas no Google, ${responses} receberam resposta pública da empresa.`,
-      impact: 'Sem resposta, elogios deixam de ser reforçados e críticas permanecem sem o contexto da empresa para quem está pesquisando.',
-      ideal: 'Avaliações recentes e críticas deveriam receber respostas humanas que demonstrem atenção, agradecimento e disposição para resolver.',
-      direction: 'Responder primeiro às avaliações recentes e às críticas, depois manter uma rotina semanal no Perfil da Empresa no Google.',
-    };
+    const copy = responseNarrative(reviews);
+    return { issue: copy.observation, impact: copy.possibleImpact, ideal: copy.idealState, direction: copy.recommendedDirection };
   }
   if (layout === 'website') {
     const siteFinding = related.find((finding) => finding.evidenceIds.some((id) => evidence.find((item) => item.id === id)?.source === 'website'));
@@ -161,17 +163,19 @@ function narrativeForLayout(layout: SlideLayout, evidence: AssessedEvidence[], r
 }
 
 function summarySlide(context: DiagnosticContext, findings: Finding[], position: number): SlideSpec {
+  const missingGoogle = isGoogleProfileMissing(context);
   const body = [
     'Analisamos como a empresa aparece, gera confiança e conduz uma pessoa da pesquisa até a conversa comercial.',
-    '', 'Google Maps', 'Perfil, comparação local, fotos e sinais de atividade pública.',
-    '', 'Reputação', 'Avaliações recentes, temas recorrentes e respostas da empresa.',
+    '', 'Google Maps', missingGoogle ? 'O espaço que a empresa deixa aberto por ainda não possuir um perfil próprio.' : 'Perfil, comparação local, fotos e sinais de atividade pública.',
+    '', 'Reputação', missingGoogle ? 'Avaliações e respostas que ainda não podem apoiar a decisão de quem pesquisa.' : 'Avaliações recentes, temas recorrentes e respostas da empresa.',
     '', 'Site', 'Clareza, experiência no celular e caminho até o contato.',
     '', 'Instagram', 'Frequência, oferta apresentada, provas e convite para conversar.',
     '', 'Verde', 'Ponto forte que merece ser preservado.',
     '', 'Amarelo', 'Oportunidade que pode melhorar o resultado.',
     '', 'Vermelho', 'Ponto que merece correção prioritária.',
   ].join('\n');
-  return { id: 'slide-summary', analysisId: context.analysisId, layout: 'summary', title: 'O caminho que um cliente percorre antes de entrar em contato.', body, evidenceIds: [], visualAssetIds: [], speakerNotes: 'Antes das conclusões, vale entender o caminho analisado. Observamos como a empresa aparece no Google Maps, como a reputação influencia a confiança, como o site conduz até o contato e como o Instagram mantém a presença ativa. Verde mostra pontos fortes, amarelo indica oportunidades e vermelho sinaliza correções prioritárias. Agora vamos abrir cada etapa com suas evidências.', durationSeconds: 30, approved: true, position };
+  const googleSummary = missingGoogle ? 'Observamos o que deixa de existir quando a empresa ainda não possui um perfil no Google Maps e como isso afeta descoberta, confiança e contato.' : 'Observamos como a empresa aparece no Google Maps e como a reputação influencia a confiança.';
+  return { id: 'slide-summary', analysisId: context.analysisId, layout: 'summary', title: 'O caminho que um cliente percorre antes de entrar em contato.', body, evidenceIds: [], visualAssetIds: [], speakerNotes: `Antes das conclusões, vale entender o caminho analisado. ${googleSummary} Também revisamos como o site conduz até o contato e como o Instagram mantém a presença ativa. Verde mostra pontos fortes, amarelo indica oportunidades e vermelho sinaliza correções prioritárias. Agora vamos abrir cada etapa com suas evidências.`, durationSeconds: 30, approved: true, position };
 }
 
 function prioritiesSlide(context: DiagnosticContext, findings: Finding[], position: number): SlideSpec {
@@ -191,14 +195,15 @@ function ctaSlide(context: DiagnosticContext, position: number): SlideSpec {
     `A Dirijo estrutura ${acquisition} e presença digital para transformar atenção em oportunidades reais, conectando estratégia, anúncios, páginas, dados, organização dos contatos e inteligência artificial.`,
     '',
     'Próximo passo',
-    'Agendar uma conversa estratégica de aproximadamente 30 minutos com a Dirijo.',
+    'Agendar uma conversa estratégica de 20 minutos com a Dirijo.',
   ].join('\n');
-  return { id: 'slide-cta', analysisId: context.analysisId, layout: 'cta', title: 'A presença pública é só uma parte do resultado.', body, evidenceIds: [], visualAssetIds: [], speakerNotes: `O que vimos até aqui é a parte pública do caminho. Para entender o potencial completo de ${name}, ainda precisamos olhar como a demanda é gerada, medida, organizada e acompanhada. A Dirijo conecta estratégia, anúncios, páginas, dados, organização dos contatos e inteligência artificial para transformar atenção em oportunidades reais. Em uma conversa de aproximadamente 30 minutos, podemos aprofundar os outros pontos e definir o melhor começo.`, durationSeconds: 30, approved: true, position };
+  return { id: 'slide-cta', analysisId: context.analysisId, layout: 'cta', title: 'A presença pública é só uma parte do resultado.', body, evidenceIds: [], visualAssetIds: [], speakerNotes: `O que vimos até aqui é a parte pública do caminho. Para entender o potencial completo de ${name}, ainda precisamos olhar como a demanda é gerada, medida, organizada e acompanhada. A Dirijo conecta estratégia, anúncios, páginas, dados, organização dos contatos e inteligência artificial para transformar atenção em oportunidades reais. Em uma conversa de 20 minutos, podemos aprofundar os outros pontos e definir o melhor começo.`, durationSeconds: 30, approved: true, position };
 }
 
 function responseTitle(context: DiagnosticContext): string {
+  if (isGoogleProfileMissing(context)) return 'Respostas no Google: a rotina pode nascer junto com as primeiras avaliações.';
   const reviews = context.evidence.find((item) => item.source === 'reviews')?.value as Record<string, unknown> | undefined;
-  return Number(reviews?.ownerResponseRate ?? 0) >= 60 ? 'Respostas no Google: atenção que reforça confiança.' : 'Respostas no Google: nenhuma avaliação analisada recebeu retorno.';
+  return responseNarrative(reviews).headline;
 }
 
 function assignPositionsAndDurations(slides: SlideSpec[]): SlideSpec[] {

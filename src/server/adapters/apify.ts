@@ -180,11 +180,15 @@ export function sanitizeReview(input: unknown): PublicReview | undefined {
   const rating = numberOrZero(item.stars ?? item.rating);
   if (!text && !rating) return undefined;
   const response = item.responseFromOwner && typeof item.responseFromOwner === "object" ? item.responseFromOwner as Record<string, unknown> : undefined;
+  const responseText = string(item.responseFromOwnerText) ?? string(response?.text) ?? string(item.responseText);
+  const responseAt = string(item.responseFromOwnerDate) ?? string(response?.publishedAtDate) ?? string(item.responseAt);
+  const knownFields = ["responseFromOwnerText", "responseFromOwner", "responseText"];
+  const hasKnownAbsence = knownFields.some((key) => Object.hasOwn(item, key) && (item[key] === null || item[key] === ""));
   return {
     rating: rating || undefined, text,
     publishedAt: string(item.publishedAtDate ?? item.publishedAt ?? item.publishAt),
-    responseText: string(response?.text ?? item.responseText),
-    responseAt: string(response?.publishedAtDate ?? item.responseAt),
+    responseText, responseAt,
+    responseStatus: responseText || responseAt ? "present" : hasKnownAbsence ? "absent" : "unknown",
   };
 }
 

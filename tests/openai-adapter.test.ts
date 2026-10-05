@@ -73,3 +73,24 @@ test('Responses API gera, verifica e monta os slides localmente', async () => {
   ].join(' ');
   assert.doesNotMatch(publishedText, /ownerResponse|\breviews?\b/i);
 });
+
+test('corrige achados da IA que negam respostas existentes e não confunde coleta vazia com falta de avaliações', async () => {
+  for (const sampleSize of [5, 0]) {
+    const client = new OpenAIDiagnosticClient({ apiKey: 'test-key', fetch: async () => {
+      const output = modelOutput('verified');
+      for (const finding of output.findings) if (['responses', 'reputation'].includes(finding.targetLayout)) finding.observation = 'Nenhuma avaliação analisada recebeu resposta da empresa.';
+      return new Response(JSON.stringify({ output_text: JSON.stringify(output), usage: { input_tokens: 10, output_tokens: 10 } }), { status: 200 });
+    } });
+    const observedAt = new Date().toISOString();
+    const evidence: Evidence[] = [
+      { id: 'e-profile', analysisId: 'guard', source: 'maps', category: 'profile', title: 'Perfil', value: { title: 'Empresa', totalScore: 5, reviewsCount: 105 }, observedAt, confidence: 1 },
+      { id: 'e-reviews', analysisId: 'guard', source: 'reviews', category: 'reputation', title: 'Avaliações', value: { sampleSize, positiveCount: sampleSize, ownerResponseCount: sampleSize, ownerResponseRate: sampleSize ? 100 : undefined, ownerResponseVerification: sampleSize ? 'verified' : 'unknown' }, observedAt, confidence: 1 },
+      { id: 'e-media', analysisId: 'guard', source: 'maps', category: 'media', title: 'Fotos', value: { photoCount: 3 }, observedAt, confidence: 1 },
+    ];
+    const result = await client.generate('Empresa', evidence);
+    const text = JSON.stringify(result.output);
+    assert.doesNotMatch(text, /nenhuma avaliação analisada recebeu resposta|a clínica ainda não possui relatos|não foram encontradas avaliações públicas/iu);
+    const responses = result.output.slides.find((slide) => slide.layout === 'responses')!;
+    assert.match(responses.title, sampleSize ? /todas as avaliações analisadas/iu : /coleta precisa de confirmação/iu);
+  }
+});

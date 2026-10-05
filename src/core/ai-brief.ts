@@ -33,7 +33,7 @@ function reviewExamples(value: Record<string, unknown>): Array<Record<string, un
       rating: review.rating,
       publishedAt: review.publishedAt,
       text: compactText(review.text ?? '', 220),
-      hasOwnerResponse: Boolean(review.responseText),
+      hasOwnerResponse: review.responseText || review.responseAt || review.responseStatus === 'present' ? true : review.responseStatus === 'absent' ? false : null,
       ...(review.responseText ? { responseExcerpt: compactText(review.responseText, 160) } : {}),
     }));
   return [...select((review) => (review.rating ?? 0) >= 4, 3), ...select((review) => (review.rating ?? 5) <= 3, 3)];
@@ -51,6 +51,8 @@ function briefFacts(evidence: Evidence): { facts: unknown; representativeExample
       'avaliações críticas': value.criticalCount,
       'avaliações respondidas pela empresa': value.ownerResponseCount,
       'percentual de avaliações respondidas': value.ownerResponseRate,
+      'avaliações cuja resposta não pôde ser verificada': value.ownerResponseUnknownCount,
+      'verificação das respostas': value.ownerResponseVerification,
       'avaliações recebidas nos últimos 90 dias': value.reviewsLast90Days,
       'dias desde a avaliação mais recente': value.daysSinceLatestReview,
       'temas recorrentes': value.themes,
@@ -69,8 +71,21 @@ function briefFacts(evidence: Evidence): { facts: unknown; representativeExample
       motivo: value.reason,
       'direção sugerida': evidence.recommendation,
     } };
-    const pages = Array.isArray(value.pages) ? value.pages.slice(0, 5).map((page) => {
+    const nap = record(value.napConsistency) ?? {};
+    const primaryActions = Array.isArray(nap.contactActions) ? nap.contactActions.slice(0, 8) : [];
+    const pages = Array.isArray(value.pages) ? value.pages.slice(0, 5).map((page, pageIndex) => {
       const item = record(page) ?? {};
+      const rawActions = pageIndex === 0 && primaryActions.length
+        ? primaryActions
+        : Array.isArray(item.contactActions) ? item.contactActions.slice(0, 8) : [];
+      const skipGeneralPhone = pageIndex > 0 && primaryActions.some((action) => record(action)?.kind === 'whatsapp');
+      const contactActions = rawActions.filter((action) => !(skipGeneralPhone && record(action)?.kind === 'phone')).map((action) => {
+        const contact = record(action) ?? {};
+        const label = contact.kind === 'whatsapp' && typeof contact.label === 'string' && /^\+?[\d\s().-]+$/.test(contact.label)
+          ? 'WhatsApp da unidade'
+          : contact.label;
+        return { tipo: contact.kind, texto: label, elemento: contact.element };
+      });
       return {
         endereço: item.url,
         'página acessível': item.status,
@@ -80,15 +95,22 @@ function briefFacts(evidence: Evidence): { facts: unknown; representativeExample
         'possui WhatsApp': item.hasWhatsApp,
         'possui agendamento': item.hasBooking,
         'possui convite para contato': item.hasCallToAction,
+        'página renderizada no navegador': item.rendered,
+        'botões e links identificados': contactActions,
       };
     }) : [];
-    const nap = record(value.napConsistency) ?? {};
     return { facts: {
       'endereço principal do site': value.origin,
       'usa conexão segura': value.https,
-      'nome da empresa encontrado nas páginas': nap.nameFound,
-      'endereço encontrado nas páginas': nap.addressFound,
-      'telefone encontrado nas páginas': nap.phoneFound,
+      'nome da unidade identificado na coleta': nap.nameFound === true ? 'sim' : 'não validado pela coleta; isso não confirma ausência',
+      'nome da unidade confere com o Google': nap.nameMatchesProfile === true ? 'sim' : nap.nameMatchesProfile === false ? 'não; há diferença a conferir' : 'não comparado',
+      'endereço identificado na coleta': nap.addressFound === true ? 'sim' : 'não identificado nas páginas capturadas; isso não confirma ausência',
+      'endereço exibido no site': nap.siteAddress,
+      'endereço confere com o Google': nap.addressMatchesProfile === true ? 'sim' : nap.addressMatchesProfile === false ? 'não; há diferença a conferir' : 'não comparado',
+      'telefone identificado na coleta': nap.phoneFound === true ? 'sim' : 'não identificado pela coleta; isso não confirma ausência',
+      'telefone do botão confere com o Google': nap.phoneMatchesProfile === true ? 'sim' : nap.phoneMatchesProfile === false ? 'não; há diferença a conferir' : 'não comparado',
+      'caminhos de contato identificados': nap.contactActions,
+      'cobertura da coleta': nap.collectionNote,
       'páginas analisadas': pages,
     } };
   }
@@ -135,6 +157,11 @@ function briefFacts(evidence: Evidence): { facts: unknown; representativeExample
   }
 
   if (evidence.source === 'maps' && category === 'profile') {
+    if (value.present === false) return { facts: {
+      'possui Perfil da Empresa no Google': false,
+      motivo: value.reason,
+      'direção sugerida': evidence.recommendation,
+    } };
     return {
       facts: {
         nome: value.title,
@@ -171,14 +198,20 @@ function crossChannelSignals(evidence: Evidence[]): AIDiagnosticBrief['crossChan
   const websiteValue = record(website?.value);
   const instagramValue = record(instagram?.value);
   const nap = record(websiteValue?.napConsistency);
-  if (profile && website && websiteValue?.present !== false && nap) {
+  if (profile && profileValue?.present !== false && website && websiteValue?.present !== false && nap) {
+    const status = (found: unknown, matches: unknown): string => {
+      if (matches === true) return 'identificado e compatível com o Google';
+      if (matches === false) return 'identificado, mas diferente do Google; conferir qual informação está atualizada';
+      if (found === true) return 'identificado na página, sem comparação conclusiva com o Google';
+      return 'não validado pela coleta; isso não confirma ausência no site';
+    };
     result.push({
       label: 'Consistência entre Google e site',
-      detail: `Nome no site: ${nap.nameFound === true ? 'encontrado' : nap.nameFound === false ? 'não encontrado' : 'não validado'}; endereço: ${nap.addressFound === true ? 'encontrado' : nap.addressFound === false ? 'não encontrado' : 'não validado'}; telefone: ${nap.phoneFound === true ? 'encontrado' : nap.phoneFound === false ? 'não encontrado' : 'não validado'}.`,
+      detail: `Nome: ${status(nap.nameFound, nap.nameMatchesProfile)}; endereço: ${status(nap.addressFound, nap.addressMatchesProfile)}; telefone: ${status(nap.phoneFound, nap.phoneMatchesProfile)}.`,
       evidenceIds: [profile.id, website.id],
     });
   }
-  if (profile && instagram && profileValue && instagramValue) {
+  if (profile && instagram && profileValue && profileValue.present !== false && instagramValue) {
     const googleCategories = [profileValue.category, ...(Array.isArray(profileValue.categories) ? profileValue.categories : [])].filter(Boolean).join(', ');
     const instagramPositioning = [instagramValue.category, instagramValue.biography].filter((item) => typeof item === 'string' && item.trim()).join(' | ');
     if (googleCategories || instagramPositioning) {
