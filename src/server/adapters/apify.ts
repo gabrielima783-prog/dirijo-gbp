@@ -1,5 +1,6 @@
 import type { InstagramPostSnapshot, InstagramSnapshot, PlaceSnapshot, PublicReview } from "../../shared/types.js";
 import { chromium } from "playwright";
+import { setTimeout as delay } from "node:timers/promises";
 
 export interface FetchLike { (input: string | URL | Request, init?: RequestInit): Promise<Response> }
 export interface ApifyRunResult { runId: string; datasetId: string; costUsd: number; items: unknown[] }
@@ -46,14 +47,43 @@ export class ApifyClient {
     const itemsUrl = new URL(`${this.baseUrl}/datasets/${datasetId}/items`);
     itemsUrl.searchParams.set("token", this.options.token);
     itemsUrl.searchParams.set("clean", "true");
-    const itemsResponse = await this.fetcher(itemsUrl);
-    if (!itemsResponse.ok) throw new Error(`Não foi possível ler o dataset Apify (${itemsResponse.status}).`);
-    const items = (await itemsResponse.json()) as unknown[];
+    const items = await this.readDataset(itemsUrl);
     return {
       runId: String(data.id), datasetId,
       costUsd: numberOrZero(data.usageTotalUsd ?? (data.stats as Record<string, unknown> | undefined)?.costUsd),
       items,
     };
+  }
+
+  private async readDataset(url: URL): Promise<unknown[]> {
+    // Repeat only the read. Starting another actor run would charge for the collection again.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      if (attempt > 0) await delay(1000 * 2 ** (attempt - 1));
+      let response: Response;
+      try {
+        response = await this.fetcher(url, { signal: AbortSignal.timeout(20_000) });
+      } catch {
+        if (attempt < 3) continue;
+        throw new Error("Não foi possível ler o dataset Apify após quatro tentativas de conexão.");
+      }
+      if (!response.ok) {
+        const transient = response.status === 429 || response.status >= 500;
+        if (transient && attempt < 3) {
+          await response.body?.cancel();
+          continue;
+        }
+        throw new Error(`Não foi possível ler o dataset Apify (${response.status}).`);
+      }
+      try {
+        const items: unknown = await response.json();
+        if (!Array.isArray(items)) throw new Error("Formato inesperado no dataset Apify.");
+        return items;
+      } catch {
+        if (attempt < 3) continue;
+        throw new Error("Não foi possível ler o dataset Apify: resposta incompleta ou inválida após quatro tentativas.");
+      }
+    }
+    throw new Error("Não foi possível ler o dataset Apify.");
   }
 
   async collectPlace(mapsUrl: string, reviewSort: "newest" | "lowestRanking" = "newest", maxReviews = 60): Promise<ApifyRunResult> {
