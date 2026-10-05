@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type {
-  Analysis, AnalysisInput, AnalysisStatus, Asset, CostEntry, Evidence, Finding,
+  Analysis, AnalysisSummary, AnalysisInput, AnalysisStatus, Asset, CostEntry, Evidence, Finding,
   SlideSpec, SourceName, SourceStatus, SourceStatusValue,
 } from "../shared/types.js";
 
@@ -52,9 +52,26 @@ export class AnalysisRepository {
     return this.get(id)!;
   }
 
-  list(): Analysis[] {
-    const rows = this.db.prepare("SELECT id FROM analyses ORDER BY created_at DESC").all() as Array<{ id: string }>;
-    return rows.map(({ id }) => this.get(id)!).filter(Boolean);
+  list(): AnalysisSummary[] {
+    // History deliberately excludes evidence, screenshots, slides and cost metadata.
+    const rows = this.db.prepare(`SELECT a.id,a.status,
+      COALESCE(a.company_name,json_extract(a.input_json,'$.companyName')) AS company_name,
+      a.created_at,a.updated_at,a.estimated_cost_usd,COALESCE(c.actual_cost_usd,0) AS actual_cost_usd
+      FROM analyses a LEFT JOIN (SELECT analysis_id,SUM(amount_usd) AS actual_cost_usd FROM costs GROUP BY analysis_id) c
+      ON c.analysis_id=a.id ORDER BY a.created_at DESC`).all() as Record<string, unknown>[];
+    const statuses = new Map<string, AnalysisSummary["sourceStatuses"]>();
+    for (const row of rows) statuses.set(String(row.id),Object.fromEntries(SOURCES.map(source => [source,{status:"pending"}])) as AnalysisSummary["sourceStatuses"]);
+    for (const run of this.db.prepare("SELECT analysis_id,source,status FROM source_runs").all() as Record<string, unknown>[]) {
+      const analysisStatuses=statuses.get(String(run.analysis_id));
+      if (analysisStatuses) analysisStatuses[String(run.source) as SourceName]={status:String(run.status) as SourceStatusValue};
+    }
+    return rows.map(row => ({
+      id:String(row.id),status:String(row.status) as AnalysisStatus,
+      companyName:row.company_name ? String(row.company_name) : undefined,
+      createdAt:String(row.created_at),updatedAt:String(row.updated_at),
+      estimatedCostUsd:Number(row.estimated_cost_usd),actualCostUsd:Number(row.actual_cost_usd),
+      sourceStatuses:statuses.get(String(row.id))!,
+    }));
   }
 
   get(id: string): Analysis | undefined {

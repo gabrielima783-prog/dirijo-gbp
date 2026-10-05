@@ -63,6 +63,10 @@ export interface SlideSpec {
   approved: boolean;
 }
 
+export type AnalysisSummary = Pick<Analysis, 'id' | 'status' | 'companyName' | 'createdAt' | 'updatedAt' | 'estimatedCostUsd' | 'actualCostUsd'> & {
+  sourceStatuses: Record<SourceKey, { status: SourceStatus }>;
+};
+
 export interface Analysis {
   id: string;
   status: AnalysisStatus;

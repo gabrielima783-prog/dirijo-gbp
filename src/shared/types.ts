@@ -102,6 +102,10 @@ export interface CostEntry {
   createdAt: string;
 }
 
+export type AnalysisSummary = Pick<Analysis, "id" | "status" | "companyName" | "createdAt" | "updatedAt" | "estimatedCostUsd" | "actualCostUsd"> & {
+  sourceStatuses: Record<SourceName, Pick<SourceStatus, "status">>;
+};
+
 export interface Analysis {
   id: string;
   status: AnalysisStatus;

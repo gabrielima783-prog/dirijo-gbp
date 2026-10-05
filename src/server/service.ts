@@ -1,4 +1,4 @@
-import type { Analysis, AnalysisInput, CostEstimate, Evidence, PlaceSnapshot, SourceName } from "../shared/types.js";
+import type { Analysis, AnalysisSummary, AnalysisInput, CostEstimate, Evidence, PlaceSnapshot, SourceName } from "../shared/types.js";
 import { AnalysisRepository } from "./repository.js";
 import { ApifyClient, instagramUsername, normalizeInstagramProfile, normalizePlace } from "./adapters/apify.js";
 import { OpenAIDiagnosticClient } from "./adapters/openai.js";
@@ -70,7 +70,7 @@ export class AnalysisService {
   isRunning(id: string): boolean { return this.running.has(id); }
 
   get(id: string): Analysis { return this.require(id); }
-  list(): Analysis[] { return this.deps.repository.list(); }
+  list(): AnalysisSummary[] { return this.deps.repository.list(); }
 
   regenerateSlide(id: string, slideId: string): Promise<Analysis> {
     return this.withHeavyOperation(() => this.regenerateSlideInternal(id, slideId));

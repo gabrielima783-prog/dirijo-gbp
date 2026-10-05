@@ -1,4 +1,4 @@
-import type { Analysis, AnalysisInput, Finding, PublicSettings, SettingsProvider, SettingsUpdate, SlideSpec, SourceKey } from './types';
+import type { Analysis, AnalysisSummary, AnalysisInput, Finding, PublicSettings, SettingsProvider, SettingsUpdate, SlideSpec, SourceKey } from './types';
 
 export interface AuthUser { id:string; email?:string; name:string; role:'admin'|'operator'|'renderer'; mustChangePassword:boolean }
 const base = '/api';
@@ -25,7 +25,7 @@ export const api = {
   settings: () => request<PublicSettings>('/settings'),
   updateSettings: (input: SettingsUpdate) => request<PublicSettings>('/settings', { method: 'PUT', body: JSON.stringify(input) }),
   testSetting: (provider: SettingsProvider) => request<{ ok: boolean; message: string }>(`/settings/test/${provider}`, { method: 'POST' }),
-  list: () => request<Analysis[]>('/analyses'),
+  list: () => request<AnalysisSummary[]>('/analyses'),
   get: (id: string) => request<Analysis>(`/analyses/${id}`),
   estimate: (id: string) => request<{ estimatedCostUsd: number }>(`/analyses/${id}/cost-estimate`),
   create: (input: AnalysisInput) => request<Analysis>('/analyses', { method: 'POST', body: JSON.stringify(input) }),

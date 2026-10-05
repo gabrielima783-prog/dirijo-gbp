@@ -4,7 +4,7 @@ import { api, type AuthUser } from './api';
 import { createContext } from 'preact';
 import { useContext } from 'preact/hooks';
 const SessionContext = createContext<AuthUser | null>(null);
-import type { Analysis, AnalysisInput, Evidence, Finding, FindingPriority, InstagramChecklist, PublicSettings, SettingsProvider, SettingsUpdate, SlideSpec, SourceKey } from './types';
+import type { Analysis, AnalysisSummary, AnalysisInput, Evidence, Finding, FindingPriority, InstagramChecklist, PublicSettings, SettingsProvider, SettingsUpdate, SlideSpec, SourceKey } from './types';
 import { sourceLabels } from './types';
 import { CompactDiagnostic } from './CompactDiagnostic';
 import { toneForSlide, type SlideTone } from '../../core/tone.js';
@@ -75,12 +75,12 @@ function EmptyState({ go }: { go: (p: string) => void }) {
 
 function History({ go }: { go: (p: string) => void }) {
   const user=useContext(SessionContext);
-  const [items, setItems] = useState<Analysis[]>([]);
+  const [items, setItems] = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   useEffect(() => { api.list().then(setItems).catch(e => setError(e.message)).finally(() => setLoading(false)); }, []);
   const duplicate = async (id: string) => { const item = await api.duplicate(id); go(`/analises/${item.id}`); };
-  const remove = async (item: Analysis) => {
+  const remove = async (item: AnalysisSummary) => {
     const name = item.companyName || 'esta análise';
     if (!confirm(`Excluir definitivamente ${name}?`)) return;
     try { await api.remove(item.id); setItems(current => current.filter(candidate => candidate.id !== item.id)); }
