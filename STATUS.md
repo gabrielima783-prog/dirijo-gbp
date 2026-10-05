@@ -28,4 +28,6 @@ Backup diário às 03h10 de São Paulo, com até cinco minutos de variação, po
 
 Diagnóstico real de validação gerado pelo operador em 05/10: Homenz Vila Velha, registro `b2cfd32a-43ca-4fed-8dc0-2059b512cbd9`, finalizado com seis achados e dez slides detalhados, custo total US$ 0,051081. Google, avaliações, concorrência, Instagram e síntese concluídos; site e PageSpeed sinalizados como não aplicáveis por ausência de site. PDF comercial gerado na VPS: duas páginas 9:16 (810 × 1440 pt), 224.067 bytes. Apresentação autenticada conferida visualmente no navegador. A conta do operador foi devolvida à senha inicial com troca obrigatória após a conferência; sessões de validação revogadas. Histórico online final contém 33 registros, incluindo o exemplo.
 
+Conferência final: administrador e operador autenticam com as senhas iniciais, ambos obrigados a trocar a senha antes de acessar o histórico. Backup manual adicional, após a geração e a revogação das sessões de validação, terminou com `Result=success`; timer permanece ativo.
+
 Runbook: `infra/VPS-RUNBOOK.md`.
