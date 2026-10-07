@@ -6,7 +6,7 @@ Atualizado em 07/10/2026.
 
 Publicado em https://gbp.viradadonutri.com.br, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local 3006. Banco, arquivos, credenciais e backups separados dos demais projetos.
 
-Release em produção: `3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991`, pacote SHA-256 `86b4084f9567a45ebd2dd788764b6970a65d3299e07a01780414cf2e5527586d`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `baff700e0c4b21361966f2f445ef3c2db06b3ce7`. Rollback binário disponível pelo executor. Limpeza automática do executor preservou releases protegidas, banco, arquivos e backups.
+Release em produção: `84b9df7c070459136ca9f3e536ba109f9ef7fba3`, pacote SHA-256 `6459d8323905202a9f015af703b96010b895fb17f7f86f4684cf725b0e2003dd`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991`. Rollback binário disponível pelo executor. Limpeza automática do executor preservou releases protegidas, banco, arquivos e backups.
 
 Health interno e externo passaram. Dirijo Ops, Dirijo Flow, Dirijo Content e Assistente Pessoal continuaram retornando 200 depois da publicação. Disco após deploy: 20% livre, 20.801.308 KiB disponíveis, 89% de inodes livres.
 
@@ -74,3 +74,13 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Backup consistente cifrado foi enviado com sucesso antes da troca da aplicação. Timer diário permanece ativo. Atualização do helper e do procedimento documentada no runbook.
 - Status confirmou `current=3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991` e `previous=baff700e0c4b21361966f2f445ef3c2db06b3ce7`. Rollback binário disponível pelo executor. Health interno, público, Ops, Flow, Content e Assistente Pessoal passaram com HTTP 200.
 - Limpeza segura automática do executor aplicada, preservando releases protegidas, dados e backups. Disco final: 21% livre, 21.290.324 KiB disponíveis, 89% de inodes livres. Nenhuma ação humana pendente para ativação.
+
+## Revisão editorial da Inbelle publicada, 07/10/2026
+
+- Gabriel aprovou a prévia local de cinco páginas e autorizou publicação. O gerador agora separa abertura, capítulos de Google e Instagram, prioridades e convite. Quantidade de páginas segue os assuntos: quatro a seis, sem comprimir canais em uma página por existir só um achado. Inbelle mantém cinco páginas; contato técnico adicional recebe capítulo próprio.
+- Abertura personalizada com até dois pontos explicados; bio interpretada; site não aparece por regra genérica. Cobertura desconhecida fica na revisão interna. CTA de 20 minutos, sem custo e sem compromisso de contratação, com destino comercial preservado.
+- Build e 83 testes passaram. QA local exportou Inbelle, Letícia, os três cenários, elegibilidade desconhecida/incompatível, revisão manual, presença forte e acesso restrito. Cinco páginas da Inbelle comparadas visualmente com a prévia aprovada. Mobile 390 px sem transbordamento horizontal.
+- O candidato `358bae97175fd3d9b711099e338c3a5b7490f305` falhou no gate PDF e teve rollback automático. A diferença de quebra de linhas no Chromium Linux exigiu cortar repetição no capítulo Instagram. Revisão adicional executada dentro da imagem da VPS, em container isolado, sem coleta paga.
+- Release ativa `84b9df7c070459136ca9f3e536ba109f9ef7fba3`, checksum `6459d8323905202a9f015af703b96010b895fb17f7f86f4684cf725b0e2003dd`. Backup cifrado concluído antes da promoção. Smoke na VPS exportou a Inbelle com cinco páginas, 225.821 bytes, sem cortes ou sobreposição, reviewRequired=false. Sessão e arquivo temporários removidos.
+- Status confirmou current nessa release e previous=`3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991`; rollback binário disponível. Health interno, público e vizinhos Ops, Flow, Content e Assistente Pessoal aprovados. Limpeza segura automática aplicada, preservando releases protegidas, dados e backups. Disco final 21% livre, 21.245.108 KiB disponíveis, 89% de inodes livres.
+- Diagnósticos existentes usam a nova montagem ao abrir e baixar o PDF novamente. Não requer nova coleta nem regeneração de IA. Sem ação humana pendente para ativação.
