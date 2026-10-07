@@ -24,6 +24,25 @@ const pick = (value: Record<string, unknown>, keys: string[]): Record<string, un
   keys.filter((key) => value[key] !== undefined).map((key) => [key, value[key]]),
 );
 
+function businessContactActions(value: unknown, pageUrl?: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((action) => {
+    const contact = record(action);
+    if (!contact) return [];
+    if (typeof contact.target === 'string') {
+      try {
+        const target = new URL(contact.target, typeof pageUrl === 'string' ? pageUrl : undefined);
+        if (/^(?:www\.)?linktr\.ee$/i.test(target.hostname)
+          && /^\/(?:features(?:\/|$)|digital-business-cards(?:\/|$))/i.test(target.pathname)) return [];
+      } catch { /* Preserve an unrecognized destination for review. */ }
+    }
+    const label = typeof contact.label === 'string'
+      ? contact.label.replace(/\s*Business Account Share\s*$/i, '').trim()
+      : contact.label;
+    return [{ ...contact, label }];
+  });
+}
+
 function reviewExamples(value: Record<string, unknown>): Array<Record<string, unknown>> {
   const reviews = Array.isArray(value.reviews) ? value.reviews as PublicReview[] : [];
   const select = (predicate: (review: PublicReview) => boolean, limit: number) => reviews
@@ -72,12 +91,12 @@ function briefFacts(evidence: Evidence): { facts: unknown; representativeExample
       'direção sugerida': evidence.recommendation,
     } };
     const nap = record(value.napConsistency) ?? {};
-    const primaryActions = Array.isArray(nap.contactActions) ? nap.contactActions.slice(0, 8) : [];
+    const primaryActions = businessContactActions(nap.contactActions, value.origin).slice(0, 8);
     const pages = Array.isArray(value.pages) ? value.pages.slice(0, 5).map((page, pageIndex) => {
       const item = record(page) ?? {};
       const rawActions = pageIndex === 0 && primaryActions.length
         ? primaryActions
-        : Array.isArray(item.contactActions) ? item.contactActions.slice(0, 8) : [];
+        : businessContactActions(item.contactActions, item.url).slice(0, 8);
       const skipGeneralPhone = pageIndex > 0 && primaryActions.some((action) => record(action)?.kind === 'whatsapp');
       const contactActions = rawActions.filter((action) => !(skipGeneralPhone && record(action)?.kind === 'phone')).map((action) => {
         const contact = record(action) ?? {};
@@ -109,7 +128,7 @@ function briefFacts(evidence: Evidence): { facts: unknown; representativeExample
       'endereço confere com o Google': nap.addressMatchesProfile === true ? 'sim' : nap.addressMatchesProfile === false ? 'não; há diferença a conferir' : 'não comparado',
       'telefone identificado na coleta': nap.phoneFound === true ? 'sim' : 'não identificado pela coleta; isso não confirma ausência',
       'telefone do botão confere com o Google': nap.phoneMatchesProfile === true ? 'sim' : nap.phoneMatchesProfile === false ? 'não; há diferença a conferir' : 'não comparado',
-      'caminhos de contato identificados': nap.contactActions,
+      'caminhos de contato identificados': primaryActions,
       'cobertura da coleta': nap.collectionNote,
       'páginas analisadas': pages,
     } };

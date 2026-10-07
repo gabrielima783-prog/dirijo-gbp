@@ -93,3 +93,5 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Build e 86 testes passaram, incluindo recuperação somente da IA sem nova coleta. Publicação e recuperação da execução serão registradas após verificação.
 
 - Primeira publicação da correção: `9f9b93b8ac151637eb1186bbcb0a6a411a17d388`, checksum `dc1d50f0b99eb6e22ca81f95b55d70fbea55cc7e304911647b302457245cdf2f`, health e smoke PDF aprovados. Nova tentativa exclusiva de IA respondeu, porém o rascunho foi rejeitado pela regra de texto antes da revisão. Ordem corrigida: revisão recebe o rascunho e validação obrigatória aprova somente o resultado final; sem remover proteção ou substituir IA por diagnóstico local.
+
+- Segunda publicação `b913f85c647f9d1451712ad3ac45f1e63ec9dc23`, checksum `9df02f86f3e19e73df99f74d7302a09f0841c1593a0a6ffefd75a158f8124561`, passou 87 testes e smoke PDF. Leitura manual das evidências identificou promoções do Linktree junto dos botões da empresa. Brief de IA agora exclui esses links de plataforma e limpa o sufixo de compartilhamento, preservando o CTA real de avaliação/WhatsApp e a evidência original.
