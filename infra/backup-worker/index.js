@@ -10,8 +10,37 @@ function authorized(request, token) {
 export default {
   async fetch(request, env) {
     if (!authorized(request, env.BACKUP_TOKEN)) return new Response('Unauthorized', {status:401});
-    const name = new URL(request.url).pathname.match(/^\/backups\/([a-zA-Z0-9_.-]{1,180})$/)?.[1];
+    const url = new URL(request.url);
+    const name = url.pathname.match(/^\/backups\/([a-zA-Z0-9_.-]{1,180})$/)?.[1];
     if (!name) return new Response('Not found', {status:404});
+    const action = url.searchParams.get('action');
+    if (action === 'create' && request.method === 'POST') {
+      const upload = await env.BACKUPS.createMultipartUpload(name, {httpMetadata:{contentType:'application/octet-stream'}});
+      return Response.json({uploadId:upload.uploadId});
+    }
+    if (action) {
+      const uploadId = url.searchParams.get('uploadId');
+      if (!uploadId || uploadId.length > 1024) return new Response('Invalid upload', {status:400});
+      const upload = env.BACKUPS.resumeMultipartUpload(name, uploadId);
+      if (action === 'part' && request.method === 'PUT') {
+        const partNumber = Number(url.searchParams.get('partNumber'));
+        const length = Number(request.headers.get('content-length'));
+        if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > 32 || length <= 0 || length > 50 * 1024 * 1024) return new Response('Invalid part', {status:400});
+        return Response.json(await upload.uploadPart(partNumber, request.body));
+      }
+      if (action === 'complete' && request.method === 'POST') {
+        const body = await request.json();
+        if (!Array.isArray(body.parts) || body.parts.length < 1 || body.parts.length > 32 || !Number.isInteger(body.bytes) || body.bytes <= 0 || body.bytes > 1024 * 1024 * 1024) return new Response('Invalid completion', {status:400});
+        const stored = await upload.complete(body.parts);
+        if (stored.size !== body.bytes) return new Response('Size mismatch', {status:500});
+        return Response.json({stored:true, bytes:stored.size});
+      }
+      if (action === 'abort' && request.method === 'DELETE') {
+        await upload.abort();
+        return Response.json({aborted:true});
+      }
+      return new Response('Invalid action', {status:400});
+    }
     if (request.method === 'PUT') {
       const length = Number(request.headers.get('content-length'));
       if (!Number.isFinite(length) || length <= 0 || length > 1024 * 1024 * 1024) return new Response('Invalid length', {status:413});

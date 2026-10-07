@@ -19,9 +19,34 @@ if(process.argv[2]==='decrypt') {
   process.exit(0);
 }
 async function upload(path,key) {
-  const url=new URL(`/backups/${key}`,config.endpoint);
-  const response=await fetch(url,{method:'PUT',headers:{'content-type':'application/octet-stream','content-length':String((await stat(path)).size),authorization:`Bearer ${config.token}`},body:createReadStream(path),duplex:'half',signal:AbortSignal.timeout(300000)});
-  if(!response.ok)throw new Error(`R2 backup upload failed (${response.status})`);
+  const bytes=(await stat(path)).size;
+  const partSize=50*1024*1024;
+  const request=async(action,options={},parameters={})=>{
+    const url=new URL(`/backups/${key}`,config.endpoint);
+    if(action)url.searchParams.set('action',action);
+    for(const [name,value] of Object.entries(parameters))url.searchParams.set(name,String(value));
+    const response=await fetch(url,{...options,headers:{authorization:`Bearer ${config.token}`,...options.headers},signal:AbortSignal.timeout(300000)});
+    if(!response.ok)throw new Error(`R2 backup upload failed (${response.status})`);
+    return response.json();
+  };
+  if(bytes<=partSize) {
+    const result=await request('',{method:'PUT',headers:{'content-type':'application/octet-stream','content-length':String(bytes)},body:createReadStream(path),duplex:'half'});
+    if(result.bytes!==bytes)throw new Error('R2 backup size mismatch');
+    return;
+  }
+  const {uploadId}=await request('create',{method:'POST'});
+  try {
+    const parts=[];
+    for(let start=0,partNumber=1;start<bytes;start+=partSize,partNumber++) {
+      const end=Math.min(start+partSize,bytes)-1;
+      parts.push(await request('part',{method:'PUT',headers:{'content-length':String(end-start+1)},body:createReadStream(path,{start,end}),duplex:'half'},{uploadId,partNumber}));
+    }
+    const result=await request('complete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({parts,bytes})},{uploadId});
+    if(result.bytes!==bytes)throw new Error('R2 backup size mismatch');
+  } catch(error) {
+    await request('abort',{method:'DELETE'},{uploadId}).catch(()=>{});
+    throw error;
+  }
 }
 await mkdir('/backups',{recursive:true});
 const temporary=await mkdtemp('/backups/.snapshot-');
