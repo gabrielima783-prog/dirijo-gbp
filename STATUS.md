@@ -6,9 +6,9 @@ Atualizado em 07/10/2026.
 
 Publicado em https://gbp.viradadonutri.com.br, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local 3006. Banco, arquivos, credenciais e backups separados dos demais projetos.
 
-Release em produção: `84b9df7c070459136ca9f3e536ba109f9ef7fba3`, pacote SHA-256 `6459d8323905202a9f015af703b96010b895fb17f7f86f4684cf725b0e2003dd`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991`. Rollback binário disponível pelo executor. Limpeza automática do executor preservou releases protegidas, banco, arquivos e backups.
+Release em produção: `c064927c5881595b2c1e95fa7701c5f77d70fbd9`, pacote SHA-256 `1dc5240e3f507f35bcf6331c3c4f1695f1bcc05271ad8064e313eb3e0d9c3430`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `5c0c350040cc24ed5a4446fea29e373e1b629133`. Rollback binário disponível pelo executor. Limpeza automática preservou releases protegidas, banco, arquivos e backups.
 
-Health interno e externo passaram. Dirijo Ops, Dirijo Flow, Dirijo Content e Assistente Pessoal continuaram retornando 200 depois da publicação. Disco após deploy: 20% livre, 20.801.308 KiB disponíveis, 89% de inodes livres.
+Health interno e externo passaram. Dirijo Ops, Dirijo Flow, Dirijo Content e Assistente Pessoal continuaram retornando 200. Disco após conferência: 20% livre, 21.002.632 KiB disponíveis, 89% de inodes livres.
 
 ## Acesso e uso
 
@@ -22,7 +22,7 @@ A listagem carrega somente resumos; detalhes, provas e imagens são carregados a
 
 ## Validação e backup
 
-`npm run check` passou com build e 51 testes. Acesso de operador validado em navegador; consulta anônima bloqueada (401), configurações e exclusão bloqueadas para operador (403). Usuários/sessão persistiram na atualização entre releases.
+`npm run check` passou com build e 101 testes na release atual. Acesso de operador validado em navegador; consulta anônima bloqueada (401), configurações e exclusão bloqueadas para operador (403). Usuários/sessão persistiram na atualização entre releases.
 
 Backup diário às 03h10 de São Paulo, com até cinco minutos de variação, por timer exclusivo ativo. Mantém sete snapshots cifrados locais e trinta dias no R2 privado. Chave de recuperação preservada separadamente da VPS. Download autenticado, verificação AES-256-GCM e recuperação em container temporário passaram: SQLite íntegro, 32 diagnósticos e dois usuários, `settings.enc` e `settings.key` presentes. Produção não foi restaurada nem alterada nessa conferência. Arquivos temporários descriptografados foram removidos.
 
@@ -105,4 +105,6 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Correção autorizada: ausência confirmada do Google conduz abertura, capítulo próprio, prioridades e propósito da conversa. Instagram continua com capítulo separado. Modalidade desconhecida condiciona a implantação; inelegibilidade e ausência sem confirmação não prescrevem criação.
 - Instagram comercial e instruções da IA passam a concentrar frequência, clareza/estrutura da bio e convite da própria bio. Referência aprovada: 12 publicações em 30 dias. Datas da observação e limites da amostra ficam explícitos; legendas não substituem CTA da bio. Removidos pedidos de conferência de link ao prospect e conclusões genéricas.
 - Build e 101 testes passaram. Dez cenários de PDF locais e viewport mobile de 390 px passaram; Nicole com cinco páginas também passou no renderer Linux isolado, sem coleta ou chamada de IA.
-- Correção do PDF existente da Nicole autorizada, preservando evidências reais e análise concluída. Ella foi consultada somente para validar a regra, sem nova exportação ou alteração dos dados. Publicação e exportação final serão registradas abaixo após a conferência operacional.
+- Correção do PDF existente da Nicole autorizada, preservando evidências reais e análise concluída. Ella foi consultada somente para validar a regra, sem nova exportação ou alteração dos dados. Publicação e exportação final concluídas e conferidas.
+- Publicado o SHA `c064927c5881595b2c1e95fa7701c5f77d70fbd9`, checksum `1dc5240e3f507f35bcf6331c3c4f1695f1bcc05271ad8064e313eb3e0d9c3430`. Backup cifrado concluído antes da promoção. Smoke real da aplicação passou com cinco páginas, 214.575 bytes e sem pendência de revisão. Health interno, público e vizinhos HTTP 200; current/previous confirmados pelo executor.
+- PDF existente da Nicole substituído pela exportação autenticada da aplicação: cinco páginas, 212.422 bytes. Ordem conferida: abertura sobre Google, Google, Instagram, prioridades e CTA. Todas as páginas renderizadas e verificadas visualmente. Referência de frequência em 30 dias; bio/CTA próprios; conversa sobre Google com 20 minutos, sem custo e sem compromisso. Evidências e resultados da IA preservados, sem nova coleta ou chamada paga. Sessões temporárias revogadas. Arquivo local final: `output/nicole-romano-corrigida-2026-10-07.pdf`.
