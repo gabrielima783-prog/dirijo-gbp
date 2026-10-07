@@ -32,7 +32,7 @@ A coleta analisa somente a empresa informada: Google e avaliações pelo link, s
 
 ## Validação do diagnóstico após publicação, 07/10/2026
 
-O adaptador `verify` executa `infra/verify-diagnostic.mjs` dentro da aplicação. Usa uma análise finalizada existente, com uma sessão de renderização limitada a esse registro, e exporta o PDF comercial servido pela nova release. Confere quatro ou cinco páginas, dimensões, ausência de cortes/sobreposição e cobertura do Instagram quando avaliado. Revoga a sessão e remove o PDF temporário ao terminar. Não dispara coleta, síntese paga, regeneração ou envio ao prospect. Se não houver análise finalizada, registra a ausência de amostra.
+O adaptador `verify` executa `infra/verify-diagnostic.mjs` dentro da aplicação. Usa uma análise finalizada existente, com uma sessão de renderização limitada a esse registro, e exporta o PDF comercial servido pela nova release. Confere quatro a seis páginas, dimensões, ausência de cortes/sobreposição e cobertura do Instagram quando avaliado. Revoga a sessão e remove o PDF temporário ao terminar. Não dispara coleta, síntese paga, regeneração ou envio ao prospect. Se não houver análise finalizada, registra a ausência de amostra.
 
 O formulário registra ausências confirmadas com método, data e referência. Dados antigos sem essa confirmação permanecem a confirmar. O PDF comercial é montado a partir das evidências preservadas a cada abertura/exportação; não é necessário refazer a coleta de diagnósticos históricos para aplicar a nova apresentação.
 

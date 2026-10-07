@@ -1,6 +1,6 @@
 # Lógica editorial dos diagnósticos comerciais
 
-Versão local para revisão em 7 de outubro de 2026, ampliada com três cenários de presença digital e cobertura explícita do Instagram. A incorporação ao gerador da aplicação depende da revisão deste modelo; o formato publicado de duas páginas continua vigente.
+Revisão editorial aprovada em 7 de outubro de 2026, após comparação da Inbelle com a prévia local. Implementação e publicação registradas no STATUS.md.
 
 O diagnóstico deve ajudar o responsável a reconhecer uma oportunidade real no próprio negócio, entender sua possível consequência e aceitar uma conversa com objetivo concreto. A percepção de personalização vem das evidências e da interpretação, além do nome e da identidade visual.
 
@@ -8,15 +8,15 @@ O diagnóstico deve ajudar o responsável a reconhecer uma oportunidade real no 
 
 A sequência deve permitir que o leitor conclua: olharam meu negócio; esse ponto existe; entendi como ele pode afetar a experiência de quem me procura; existe uma direção razoável; conversar ajuda a escolher a prioridade.
 
-Usar cinco páginas quando houver dois achados relevantes e distintos. Com apenas um achado sustentado, usar quatro páginas, retirando a segunda página de aprofundamento. Sem achado confiável, encaminhar para revisão e apresentar os pontos fortes e as informações necessárias para aprofundar a análise. Não criar um problema para preencher o formato.
+A quantidade de páginas segue os assuntos observados. Abertura, prioridades e convite ocupam uma página cada. Google e Instagram têm capítulos separados; um problema técnico de contato recebe capítulo próprio. O material tem quatro a seis páginas: Google e Instagram produzem cinco mesmo com apenas uma oportunidade confirmada. Site só entra quando existe uma necessidade sustentada, sem oferta automática.
 
-O limite desta proposta é cinco páginas. Outros achados ficam disponíveis na análise detalhada ou para a conversa, sem aumentar automaticamente o PDF comercial.
+A abertura apresenta até dois pontos com uma explicação curta, ligada ao negócio. Cada capítulo contém evidência, importância e direção. A bio é interpretada, sem transcrição bruta. Cobertura desconhecida fica na revisão interna e não é amontoada na página de prioridades. Sem achado confiável, encaminhar para revisão, sem fabricar um problema.
 
 ## Cenários e cobertura dos canais
 
 As páginas se adaptam aos canais realmente observados. Avaliar um canal e escolher um achado principal são decisões diferentes: todo canal analisado deve ter uma conclusão visível, mesmo quando o resultado for positivo ou não justificar uma página exclusiva.
 
-O Instagram não é excluído para caber no limite de páginas. Se Google e Instagram estiverem disponíveis, os dois precisam aparecer com evidência e interpretação. Uma página pode reunir reputação no Google e clareza no Instagram, enquanto outra aprofunda o destino de contato compartilhado.
+O Instagram não é excluído para caber no limite de páginas. Se Google e Instagram estiverem disponíveis, os dois precisam aparecer com evidência e interpretação. Google e Instagram têm conclusões em capítulos separados. O destino compartilhado recebe uma página própria quando há um achado técnico sustentado.
 
 | Cenário confirmado | O que analisar | Por que importa ao negócio | Organização de referência |
 |---|---|---|---|
@@ -207,3 +207,7 @@ A eficácia comercial deve ser acompanhada por versão do material: contatos que
 Gabriel aprovou a lógica e autorizou a publicação em produção neste chat. A aplicação agora monta o PDF comercial com quatro ou cinco páginas a partir das evidências, mantém conclusão de cada canal avaliado, separa presença e execução e registra a confirmação de ausência no formulário. Os registros históricos sem confirmação não sustentam ausência. Capturas e métricas se referem à URL específica usada pelo negócio; a auditoria do Linktree não navega para páginas institucionais do fornecedor.
 
 A apresentação detalhada usa de quatro a dez páginas conforme os canais observados. A verificação da release inclui exportação de uma análise existente na VPS, sem nova coleta ou síntese paga. Estado final, SHA, checksum e rollback ficam exclusivamente no `../../STATUS.md`. O protótipo Python permanece como referência isolada; a lógica ativa é TypeScript em `src/core/compact-diagnostic.ts` e `src/core/channel-presence.ts`.
+
+## Revisão após o primeiro diagnóstico publicado
+
+Prévia da Inbelle aprovada no chat: abertura personalizada; Google e reputação; Instagram e WhatsApp; prioridades; CTA gratuito de 20 minutos sem compromisso. O gerador foi comparado visualmente com essa prévia, além dos testes técnicos. Layout preserva corpo 27–28 px em largura 810 px. As páginas do PDF da Inbelle foram conferidas integralmente; três cenários e casos de coleta parcial também foram exportados. Não houve nova coleta paga.

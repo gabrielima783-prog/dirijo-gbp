@@ -18,8 +18,9 @@ try {
   } else {
     const analysis = new AnalysisRepository(db).get(String(row.id));
     const model = buildCompactDiagnostic(analysis);
-    if (![4,5].includes(model.pageCount)) throw new Error('Invalid commercial page count');
+    if (model.pageCount !== model.editorialPages.length + 3 || model.pageCount < 4 || model.pageCount > 6) throw new Error('Invalid commercial page count');
     if (analysis.sourceStatuses.instagram.status === 'completed' && !model.coverage.some(item=>item.source==='Instagram')) throw new Error('Instagram coverage omitted');
+    if (model.coverage.some(item=>item.source==='Instagram' && item.evidenceIds.length) && !model.editorialPages.some(page=>page.section.startsWith('Instagram'))) throw new Error('Instagram chapter omitted');
     temporary = await mkdtemp(join(tmpdir(),'gbp-pdf-smoke-'));
     renderer = new AuthStore(db).renderer(analysis.id);
     const result = await exportAnalysisPdf({analysisId:analysis.id,outputPath:join(temporary,'smoke.pdf'),compact:true,baseUrl:'http://127.0.0.1:8787',sessionToken:renderer.token,expectedSlideCount:model.pageCount,timeoutMs:60000});

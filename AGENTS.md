@@ -12,7 +12,7 @@ Produto próprio.
 - Diagnóstico baseado em evidências.
 - Narrativa comercial simples: problema observado, possível perda de oportunidade, cenário correto e direção.
 - Material nasce pronto e aprovado; o editor fica disponível para correções opcionais.
-- Entrega comercial padrão em quatro ou cinco páginas 9:16, baseada na lógica aprovada em 07/10/2026 e documentada em `docs/diagnosticos/LOGICA-DIAGNOSTICOS-V2.md`. Até dois achados sustentados, conclusão visível de cada canal avaliado, prioridades e conversa de 20 minutos, sem custo e sem compromisso de contratação. O material detalhado permanece disponível para revisão.
+- Entrega comercial padrão em quatro a seis páginas 9:16, baseada na lógica aprovada em 07/10/2026 e documentada em `docs/diagnosticos/LOGICA-DIAGNOSTICOS-V2.md`. Até dois achados sustentados, conclusão visível de cada canal avaliado, prioridades e conversa de 20 minutos, sem custo e sem compromisso de contratação. O material detalhado permanece disponível para revisão.
 - Histórico local em SQLite.
 
 ## Contexto
@@ -51,3 +51,7 @@ Aplicação local preservada e versão compartilhada na VPS, com autenticação 
 - URL vazia, perfil não localizado, acesso restrito e falha de coleta não comprovam ausência. Confirmar inexistência com método, data e referência; priorizar os canais realmente observados.
 - Instagram avaliado sempre tem conclusão visível, incluindo pontos positivos. Bio, serviços, confiança, convites e destino de contato entram na leitura; frequência e contadores isolados não definem problema comercial.
 - Sem achado sustentado, sinalizar revisão. Preservar escopo das amostras e fontes legíveis. CTA: “Quero definir minha prioridade”, com 20 minutos, sem custo e sem compromisso de contratação.
+
+## Revisão editorial após a Inbelle, 07/10/2026
+- A quantidade de páginas acompanha os capítulos, não a contagem de achados. Google e Instagram ficam separados; contato técnico ganha página própria. Inbelle: cinco páginas. Quatro apenas quando há um capítulo; seis quando três assuntos exigem aprofundamento.
+- Preservar abertura personalizada, evidência interpretada, importância, direção e CTA. Não adicionar cobertura interna ou site genérico à página de prioridades. Comparar o PDF gerado pela aplicação com a prévia aprovada antes de publicar, além da validação técnica.

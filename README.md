@@ -93,7 +93,7 @@ O limite padrão é US$ 1 por análise. Acima dele, a continuação exige confir
 
 São aceitos links completos do Google Maps, links curtos `maps.app.goo.gl` e links de compartilhamento `share.google`. A conversão de `share.google` é local, sem consulta paga adicional. Se o Google bloquear essa abertura, abra a ficha diretamente no Google Maps e use Compartilhar > Copiar link, ou copie a URL completa da ficha na barra do navegador. Esse formato evita a etapa de conversão do link compartilhado.
 
-O PDF comercial usa quatro ou cinco páginas, adaptadas aos canais avaliados: evidências, consequências possíveis, prioridades e conversa de 20 minutos sem custo e sem compromisso. A apresentação detalhada permanece disponível, entre quatro e dez páginas conforme os canais observados. Vermelho identifica correção confirmada, amarelo indica atenção ou oportunidade e verde destaca ponto forte.
+O PDF comercial usa quatro a seis páginas, adaptadas aos canais avaliados: evidências, consequências possíveis, prioridades e conversa de 20 minutos sem custo e sem compromisso. A apresentação detalhada permanece disponível, entre quatro e dez páginas conforme os canais observados. Vermelho identifica correção confirmada, amarelo indica atenção ou oportunidade e verde destaca ponto forte.
 
 ## Validação
 
