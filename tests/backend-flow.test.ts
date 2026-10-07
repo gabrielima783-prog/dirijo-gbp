@@ -1,3 +1,4 @@
+import { createDiagnostic } from "../src/core/diagnostic.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createDatabase } from "../src/server/db.js";
@@ -29,7 +30,7 @@ const mainPlace = {
   url: "https://maps.google.com/?cid=123",
 };
 
-function setup(options: { failCompetitors?: boolean; foreignCompetitors?: boolean; withWebsite?: boolean; withInstagram?: boolean } = {}) {
+function setup(options: { failCompetitors?: boolean; foreignCompetitors?: boolean; withWebsite?: boolean; withInstagram?: boolean; aiUnavailable?: boolean } = {}) {
   const repository = new AnalysisRepository(createDatabase({ filename: ":memory:" }));
   const apify = {
     async collectPlace() {
@@ -70,7 +71,11 @@ function setup(options: { failCompetitors?: boolean; foreignCompetitors?: boolea
       };
     },
   } : undefined;
-  const service = new AnalysisService({ repository, apify: apify as never, instagram: instagram as never, website: website as never, pageSpeed: pageSpeed as never, costLimitUsd: 1 });
+  const openai = options.aiUnavailable ? undefined : { model: 'test-model', async generate(companyName: string, evidence: never[]) {
+    const result = createDiagnostic({ analysisId: 'test', input: { companyName }, companyName, evidence, generatedAt: new Date().toISOString() });
+    return { output: { findings: result.findings, slides: result.presentation.slides }, usage: { inputTokens: 0, outputTokens: 0 }, verificationApplied: true };
+  } };
+  const service = new AnalysisService({ repository, openai: openai as never, apify: apify as never, instagram: instagram as never, website: website as never, pageSpeed: pageSpeed as never, costLimitUsd: 1 });
   return { repository, service };
 }
 
@@ -84,29 +89,40 @@ test("não coleta concorrentes e bloqueia nova tentativa dessa fonte", async () 
   await assert.rejects(service.retry(created.id, "competitors"), /removida/);
 });
 
-test("coleta Maps completa preserva evidências, custo e rascunho local quando a IA está indisponível", async () => {
-  const { service } = setup();
+test("falha de IA preserva dados reais e não fabrica diagnóstico aprovado", async () => {
+  const { service } = setup({ aiUnavailable: true });
   const created = service.create({ mapsUrl: "https://maps.app.goo.gl/abc", contactName: "Marina" });
   const result = await service.collect(created.id);
 
-  assert.equal(result.status, "finalized");
+  assert.equal(result.status, "failed");
   assert.equal(result.companyName, "Clínica Horizonte");
   assert.equal(result.sourceStatuses.maps.status, "completed", result.sourceStatuses.maps.error);
   assert.equal(result.sourceStatuses.reviews.status, "completed");
   assert.equal(result.sourceStatuses.competitors.status, "skipped");
   assert.equal(result.sourceStatuses.website.status, "skipped");
   assert.equal(result.sourceStatuses.ai.status, "failed");
-  assert.equal(result.slides.length, 8);
+  assert.equal(result.slides.length, 0);
   const missingSite = result.evidence.find((item) => item.source === "website");
   assert.equal(missingSite?.category, "coverage");
   assert.equal((missingSite?.value as { presence: { state: string } }).presence.state, "not_provided");
   assert.equal(result.findings.some((item) => item.evidenceIds.includes(missingSite?.id ?? "")), false);
-  assert.ok(result.findings.length >= 3);
+  assert.equal(result.findings.length, 0);
   assert.ok(result.slides.every((slide) => slide.approved));
   assert.ok(result.findings.every((finding) => finding.approved));
   assert.ok(result.actualCostUsd > 0);
   assert.doesNotMatch(JSON.stringify(result.evidence), /Nome que não pode aparecer|Outro nome/);
   assert.match(JSON.stringify(result.evidence), /Demora no retorno/);
+  const realIds = result.evidence.map(item => item.id);
+  service.updateIntegrations({ openai: { model: 'test-model', async generate(companyName: string, evidence: never[]) {
+    const d = createDiagnostic({ analysisId: created.id, input: created.input, companyName, evidence, generatedAt: new Date().toISOString() });
+    return { output: { findings: d.findings, slides: d.presentation.slides }, usage: { inputTokens: 0, outputTokens: 0 }, verificationApplied: true };
+  } } as never });
+  const recovered = await service.retry(created.id, 'ai');
+  assert.equal(recovered.status, 'finalized');
+  assert.equal(recovered.sourceStatuses.ai.status, 'completed');
+  assert.deepEqual(recovered.evidence.filter(item => item.source !== 'ai').map(item => item.id), realIds);
+  assert.equal(recovered.actualCostUsd, result.actualCostUsd);
+
 });
 
 test("usa o site confirmado no formulário para auditoria e PageSpeed", async () => {

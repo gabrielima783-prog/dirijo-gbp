@@ -13,7 +13,7 @@ Painel local para transformar dados públicos do Perfil da Empresa no Google, si
 - análise em duas etapas: uma chamada gera os achados e uma segunda chamada compacta confere evidências, exageros e linguagem;
 - slides montados localmente a partir dos achados verificados, sem depender de identificadores inventados pela IA;
 - narrativa comercial em linguagem simples: o que foi encontrado, por que pode custar oportunidades, como deveria estar e qual direção seguir;
-- rascunho local de contingência quando a IA falhar;
+- evidências preservadas em falha da IA, com nova tentativa somente da análise e sem diagnóstico substituto automático;
 - achados, slides e PDFs aprovados e finalizados automaticamente;
 - editor opcional para corrigir, ocultar, reordenar ou regenerar somente quando necessário;
 - apresentação limpa, modo apresentador sincronizado e PDF 16:9;

@@ -94,3 +94,53 @@ test('corrige achados da IA que negam respostas existentes e não confunde colet
     assert.match(responses.title, sampleSize ? /todas as avaliações analisadas/iu : /coleta precisa de confirmação/iu);
   }
 });
+
+test('limita espera da IA sem repetir POST pago e oculta detalhes da conexão', async () => {
+  let calls = 0;
+  const client = new OpenAIDiagnosticClient({apiKey:'test-key',timeoutMs:15,fetch:async(_url,init)=>{
+    calls++;
+    return new Promise<Response>((_resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('private network details')),1000);
+      init?.signal?.addEventListener('abort',()=>{clearTimeout(timer);reject(new Error('private network details'));},{once:true});
+    });
+  }});
+  await assert.rejects(client.generate('Empresa',[{id:'ig',analysisId:'timeout',source:'instagram',category:'instagram',title:'Instagram',value:{username:'empresa'},observedAt:new Date().toISOString(),confidence:1}]), /excedeu o tempo limite.*evidências coletadas foram preservadas/);
+  assert.equal(calls,1);
+});
+
+test('timeout da verificação preserva a primeira análise validada', async () => {
+  let calls=0;
+  const observedAt=new Date().toISOString();
+  const evidence:Evidence[]=[
+    {id:'e-profile',analysisId:'timeout',source:'maps',category:'profile',title:'Perfil',value:{title:'Empresa',totalScore:5,reviewsCount:10},observedAt,confidence:1},
+    {id:'e-reviews',analysisId:'timeout',source:'reviews',category:'reputation',title:'Avaliações',value:{sampleSize:10,ownerResponseCount:0,ownerResponseVerification:'verified'},observedAt,confidence:1},
+    {id:'e-media',analysisId:'timeout',source:'maps',category:'media',title:'Fotos',value:{photoCount:3},observedAt,confidence:1},
+  ];
+  const client=new OpenAIDiagnosticClient({apiKey:'test-key',verificationTimeoutMs:15,fetch:async(_url,init)=>{
+    if(++calls===1)return new Response(JSON.stringify({output_text:JSON.stringify(modelOutput('draft')),usage:{input_tokens:10,output_tokens:10}}));
+    return new Promise<Response>((_resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('unexpected wait')),1000);
+      init?.signal?.addEventListener('abort',()=>{clearTimeout(timer);reject(new Error('timeout'));},{once:true});
+    });
+  }});
+  const result=await client.generate('Empresa',evidence);
+  assert.equal(calls,2);assert.equal(result.verificationApplied,false);assert.ok(result.output.slides.length>0);
+});
+
+
+test('somente Instagram pede exatamente um achado e não preenche canais ausentes', async () => {
+  const requests: Record<string, unknown>[] = [];
+  const client = new OpenAIDiagnosticClient({ apiKey: 'test-key', fetch: async (_url, init) => {
+    const request = JSON.parse(String(init?.body)); requests.push(request);
+    const finding = { ...modelOutput('draft').findings[0], targetLayout: 'instagram', category: 'instagram', evidenceIds: ['ig'], observation: 'A bio informa o serviço e o link de contato.' };
+    return new Response(JSON.stringify({ output_text: JSON.stringify({ findings: [finding] }), usage: {} }));
+  } });
+  const result = await client.generate('Empresa', [{ id: 'ig', analysisId: 'one', source: 'instagram', category: 'instagram', title: 'Instagram', value: { username: 'empresa', biography: 'Serviço e contato' }, observedAt: new Date().toISOString(), confidence: 1 }]);
+  assert.equal(result.output.findings.length, 1);
+  for (const r of requests) {
+    const findings = (r as any).text.format.schema.properties.findings;
+    assert.equal(findings.minItems, 1); assert.equal(findings.maxItems, 1);
+    assert.deepEqual(findings.items.properties.targetLayout.enum, ['instagram']);
+    assert.deepEqual(r.reasoning, { effort: 'low' });
+  }
+});

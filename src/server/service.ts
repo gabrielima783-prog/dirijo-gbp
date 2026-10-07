@@ -3,9 +3,7 @@ import { AnalysisRepository } from "./repository.js";
 import { ApifyClient, instagramUsername, normalizeInstagramProfile, normalizePlace } from "./adapters/apify.js";
 import { OpenAIDiagnosticClient } from "./adapters/openai.js";
 import { PageSpeedClient, WebsiteAuditor, type WebsiteContactAction, type WebsitePage } from "./adapters/website.js";
-import { createDiagnostic } from "../core/diagnostic.js";
 import { inputChannelPresence } from "../core/channel-presence.js";
-import type { AssessedEvidence } from "../core/types.js";
 
 export interface AnalysisServiceDependencies {
   repository: AnalysisRepository;
@@ -114,7 +112,6 @@ export class AnalysisService {
       await this.runSource(id, source, analysis.input);
       if (source !== "ai" && this.deps.openai) await this.runSource(id, "ai", analysis.input);
     } catch (error) {
-      if (source === "ai" && this.require(id).evidence.length) this.generateLocalDraft(id, analysis.input);
       this.recordFailedCoverage(id, source, analysis.input, error);
       this.deps.repository.setSource(id, source, "failed", errorMessage(error));
     }
@@ -158,7 +155,6 @@ export class AnalysisService {
       }
       try { await this.runSource(id, source, analysis.input); successes += 1; }
       catch (error) {
-        if (source === "ai" && this.require(id).evidence.length) this.generateLocalDraft(id, analysis.input);
         this.recordFailedCoverage(id, source, analysis.input, error);
         this.deps.repository.setSource(id, source, "failed", errorMessage(error));
       }
@@ -261,7 +257,9 @@ export class AnalysisService {
     if (source === "ai") {
       if (!this.deps.openai) throw new Error("OpenAI não configurada.");
       const current = this.require(id); if (!current.evidence.length) throw new Error("Não há evidências para analisar.");
-      const generated = await this.deps.openai.generate(current.companyName ?? input.companyName ?? "Empresa analisada", current.evidence);
+      const generated = await this.deps.openai.generate(current.companyName ?? input.companyName ?? "Empresa analisada", current.evidence, (stage, responseId) => {
+        this.deps.repository.setSource(id, "ai", "running", undefined, { stage, model: this.deps.openai!.model, ...(responseId ? { responseId } : {}) });
+      });
       this.deps.repository.replaceFindings(id, generated.output.findings.map((item, position) => ({ ...item, approved: true, position })));
       this.deps.repository.replaceSlides(id, generated.output.slides.map((item, position) => ({ ...item, approved: true, position })));
       const amount = (generated.usage.inputTokens * 0.25 + generated.usage.outputTokens * 2) / 1_000_000;
@@ -316,21 +314,12 @@ export class AnalysisService {
     const instagram = this.require(id).evidence.find(item => item.source === "instagram" && item.category === "instagram")?.value as { externalUrl?: string } | undefined;
     return instagram?.externalUrl?.trim() || undefined;
   }
-  private generateLocalDraft(id: string, input: AnalysisInput): void {
-    const current = this.require(id);
-    if (!current.evidence.some(item => item.category !== "coverage" && item.source !== "operator" && item.source !== "ai")) return;
-    const result = createDiagnostic({
-      analysisId: id,
-      input,
-      ...(current.companyName ? { companyName: current.companyName } : {}),
-      evidence: current.evidence as AssessedEvidence[],
-      generatedAt: new Date().toISOString(),
-    });
-    this.deps.repository.replaceFindings(id, result.findings.map((item, position) => ({ ...item, approved: true, position })));
-    this.deps.repository.replaceSlides(id, result.presentation.slides.map((item, position) => ({ ...item, approved: true, position })));
-  }
   private makeReady(id: string, fallbackStatus: Analysis["status"]): void {
     const analysis = this.require(id);
+    if (analysis.sourceStatuses.ai.status !== "completed") {
+      this.deps.repository.setStatus(id, "failed");
+      return;
+    }
     if (!analysis.findings.length || !analysis.slides.length) {
       this.deps.repository.setStatus(id, fallbackStatus);
       return;

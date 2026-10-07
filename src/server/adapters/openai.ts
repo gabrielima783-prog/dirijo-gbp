@@ -13,7 +13,7 @@ export interface DiagnosticOutput {
   slides: Array<Omit<SlideSpec, 'id' | 'analysisId' | 'position'>>;
 }
 
-export interface OpenAIClientOptions { apiKey: string; model?: string; fetch?: FetchLike; baseUrl?: string }
+export interface OpenAIClientOptions { apiKey: string; model?: string; fetch?: FetchLike; baseUrl?: string; timeoutMs?: number; verificationTimeoutMs?: number }
 
 interface ModelFinding {
   targetLayout: SlideLayout;
@@ -51,7 +51,7 @@ export class OpenAIDiagnosticClient {
     this.model = options.model ?? 'gpt-5-mini';
   }
 
-  async generate(companyName: string, evidence: Evidence[]): Promise<{
+  async generate(companyName: string, evidence: Evidence[], onProgress?: (stage: "generating" | "verifying", responseId?: string) => void): Promise<{
     output: DiagnosticOutput;
     usage: { inputTokens: number; outputTokens: number };
     responseId?: string;
@@ -62,23 +62,26 @@ export class OpenAIDiagnosticClient {
     if (!this.options.apiKey) throw new Error('OPENAI_API_KEY ausente.');
     const requiredLayouts = requiredSlideLayouts(evidence);
     const findingLayouts = requiredLayouts.filter((layout) => DIAGNOSTIC_LAYOUTS.includes(layout));
+    if (!findingLayouts.length) throw new Error('Não há canais com evidências suficientes para análise por IA.');
     const brief = buildAIDiagnosticBrief(evidence);
     const images = collectVisualSamples(evidence);
+    onProgress?.("generating");
     const generated = await this.callModel(GENERATOR_PROMPT, [
       { type: 'input_text', text: JSON.stringify({ companyName, findingLayouts, brief }) },
       ...images.map((imageUrl) => ({ type: 'input_image', image_url: imageUrl, detail: 'low' })),
-    ]);
+    ], findingLayouts);
     const firstPass = reconcileFindings(generated.output.findings, findingLayouts, evidence);
 
     let verified = firstPass;
     let verificationApplied = false;
     let verification: ModelCallResult | undefined;
     try {
+      onProgress?.("verifying", generated.responseId);
       const supportingEvidence = selectSupportingBrief(brief, firstPass);
       verification = await this.callModel(VERIFIER_PROMPT, [{
         type: 'input_text',
         text: JSON.stringify({ companyName, findingLayouts, draftFindings: firstPass, supportingEvidence }),
-      }]);
+      }], findingLayouts, this.options.verificationTimeoutMs ?? 90_000);
       verified = reconcileFindings(verification.output.findings, findingLayouts, evidence, firstPass);
       verificationApplied = true;
     } catch {
@@ -107,27 +110,35 @@ export class OpenAIDiagnosticClient {
     };
   }
 
-  private async callModel(systemPrompt: string, userContent: Array<Record<string, unknown>>): Promise<ModelCallResult> {
-    const response = await this.fetcher(`${this.options.baseUrl ?? 'https://api.openai.com/v1'}/responses`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${this.options.apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: this.model,
-        store: false,
-        input: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
-        text: { format: { type: 'json_schema', name: 'dirijo_gbp_findings', strict: true, schema: findingsSchema } },
-      }),
-    });
-    if (!response.ok) throw new Error(`OpenAI recusou o diagnóstico (${response.status}).`);
-    const body = await response.json() as Record<string, unknown>;
-    const output = JSON.parse(extractOutputText(body)) as FindingsResponse;
-    if (!Array.isArray(output.findings)) throw new Error('OpenAI não retornou achados estruturados.');
-    const usage = (body.usage ?? {}) as Record<string, unknown>;
-    return {
-      output,
-      usage: { inputTokens: Number(usage.input_tokens ?? 0), outputTokens: Number(usage.output_tokens ?? 0) },
-      ...(typeof body.id === 'string' ? { responseId: body.id } : {}),
-    };
+  private async callModel(systemPrompt: string, userContent: Array<Record<string, unknown>>, layouts: SlideLayout[], timeoutMs = this.options.timeoutMs ?? 180_000): Promise<ModelCallResult> {
+    const signal = AbortSignal.timeout(timeoutMs);
+    try {
+      const response = await this.fetcher(`${this.options.baseUrl ?? 'https://api.openai.com/v1'}/responses`, {
+        method: 'POST',
+        signal,
+        headers: { authorization: `Bearer ${this.options.apiKey}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: this.model,
+          store: false,
+          ...(this.model === 'gpt-5-mini' ? { reasoning: { effort: 'low' } } : {}),
+          input: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
+          text: { format: { type: 'json_schema', name: 'dirijo_gbp_findings', strict: true, schema: findingsSchemaFor(layouts) } },
+        }),
+      });
+      if (!response.ok) throw new Error(`OpenAI recusou o diagnóstico (${response.status}).`);
+      const body = await response.json() as Record<string, unknown>;
+      const output = JSON.parse(extractOutputText(body)) as FindingsResponse;
+      if (!Array.isArray(output.findings)) throw new Error('OpenAI não retornou achados estruturados.');
+      const usage = (body.usage ?? {}) as Record<string, unknown>;
+      return {
+        output,
+        usage: { inputTokens: Number(usage.input_tokens ?? 0), outputTokens: Number(usage.output_tokens ?? 0) },
+        ...(typeof body.id === 'string' ? { responseId: body.id } : {}),
+      };
+    } catch (error) {
+      if (signal.aborted) throw new Error('A análise por IA excedeu o tempo limite. As evidências coletadas foram preservadas.');
+      throw error;
+    }
   }
 }
 
@@ -176,11 +187,11 @@ const modelFindingProperties = {
   idealState: { type: 'string' },
   recommendedDirection: { type: 'string' },
 };
-const findingsSchema = {
+function findingsSchemaFor(layouts: SlideLayout[]) { return {
   type: 'object', additionalProperties: false, required: ['findings'], properties: {
-    findings: { type: 'array', minItems: 4, maxItems: 6, items: { type: 'object', additionalProperties: false, required: Object.keys(modelFindingProperties), properties: modelFindingProperties } },
+    findings: { type: 'array', minItems: layouts.length, maxItems: layouts.length, items: { type: 'object', additionalProperties: false, required: Object.keys(modelFindingProperties), properties: { ...modelFindingProperties, targetLayout: { type: 'string', enum: layouts } } } },
   },
-};
+}; }
 
 function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence: Evidence[], previous: Finding[] = []): Finding[] {
   const fallback = generateFindings(evidence as AssessedEvidence[]);
@@ -193,8 +204,7 @@ function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence
     const compatibleEvidence = evidence.filter((item) => allowedCategories.includes(inferCategory(item)));
     const compatibleIds = new Set(compatibleEvidence.map((item) => item.id));
     const candidate = raw.find((item) => item.targetLayout === layout)
-      ?? previous.find((item) => item.targetLayout === layout)
-      ?? fallback.find((item) => allowedCategories.includes(item.category));
+      ?? previous.find((item) => item.targetLayout === layout);
     if (!candidate) throw new Error(`Não foi possível gerar o achado ${layout}.`);
     const evidenceIds = candidate.evidenceIds.filter((id) => compatibleIds.has(id));
     const finalEvidenceIds = evidenceIds.length ? evidenceIds.slice(0, 3) : compatibleEvidence.slice(0, 2).map((item) => item.id);

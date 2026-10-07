@@ -84,3 +84,10 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Release ativa `84b9df7c070459136ca9f3e536ba109f9ef7fba3`, checksum `6459d8323905202a9f015af703b96010b895fb17f7f86f4684cf725b0e2003dd`. Backup cifrado concluído antes da promoção. Smoke na VPS exportou a Inbelle com cinco páginas, 225.821 bytes, sem cortes ou sobreposição, reviewRequired=false. Sessão e arquivo temporários removidos.
 - Status confirmou current nessa release e previous=`3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991`; rollback binário disponível. Health interno, público e vizinhos Ops, Flow, Content e Assistente Pessoal aprovados. Limpeza segura automática aplicada, preservando releases protegidas, dados e backups. Disco final 21% livre, 21.245.108 KiB disponíveis, 89% de inodes livres.
 - Diagnósticos existentes usam a nova montagem ao abrir e baixar o PDF novamente. Não requer nova coleta nem regeneração de IA. Sem ação humana pendente para ativação.
+
+
+## Correção da espera da IA preparada, 07/10/2026
+
+- Nicole Romano concluiu Instagram, destino de contato e PageSpeed às 18:23 UTC. IA permaneceu em execução por mais de dez minutos. Auditoria confirmou gpt-5-mini, resumo de 5.765 bytes e somente dois assuntos, enquanto o formato exigia no mínimo quatro achados. Essa contradição foi eliminada: contagem e canais do formato agora seguem as evidências reais.
+- Mantidas interpretação e checagem por IA; esforço explicitamente low para gpt-5-mini, espera limitada por chamada e indicação das etapas de geração/checagem. Falha não produz diagnóstico automático substituto, preserva coleta e permite repetir apenas IA. Canais faltantes na resposta não recebem achados fabricados para preencher estrutura.
+- Build e 86 testes passaram, incluindo recuperação somente da IA sem nova coleta. Publicação e recuperação da execução serão registradas após verificação.
