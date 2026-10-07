@@ -8,9 +8,9 @@ O diagnóstico deve ajudar o responsável a reconhecer uma oportunidade real no 
 
 A sequência deve permitir que o leitor conclua: olharam meu negócio; esse ponto existe; entendi como ele pode afetar a experiência de quem me procura; existe uma direção razoável; conversar ajuda a escolher a prioridade.
 
-A quantidade de páginas segue os assuntos observados. Abertura, prioridades e convite ocupam uma página cada. Google e Instagram têm capítulos separados; um problema técnico de contato recebe capítulo próprio. O material tem quatro a seis páginas: Google e Instagram produzem cinco mesmo com apenas uma oportunidade confirmada. Site só entra quando existe uma necessidade sustentada, sem oferta automática.
+A quantidade de páginas segue os assuntos observados. Abertura, prioridades e convite ocupam uma página cada. Google e Instagram têm capítulos separados; um problema técnico de contato recebe capítulo próprio, exceto no cenário de Google ausente confirmado, em que fica secundário nas prioridades. O material tem quatro a seis páginas: Google e Instagram produzem cinco mesmo com apenas uma oportunidade confirmada. Site só entra quando existe uma necessidade sustentada, sem oferta automática.
 
-A abertura apresenta até dois pontos com uma explicação curta, ligada ao negócio. Cada capítulo contém evidência, importância e direção. A bio é interpretada, sem transcrição bruta. Cobertura desconhecida fica na revisão interna e não é amontoada na página de prioridades. Sem achado confiável, encaminhar para revisão, sem fabricar um problema.
+A abertura apresenta até dois pontos com uma explicação curta, ligada ao negócio. Cada capítulo contém evidência, importância e direção. A bio recebe interpretação, acompanhada de um trecho curto como evidência quando necessário. Cobertura desconhecida fica na revisão interna e não é amontoada na página de prioridades. Sem achado confiável, encaminhar para revisão, sem fabricar um problema.
 
 ## Cenários e cobertura dos canais
 
@@ -22,7 +22,7 @@ O Instagram não é excluído para caber no limite de páginas. Se Google e Inst
 |---|---|---|---|
 | Google e Instagram, sem site próprio | Informações e reputação no Google; identidade, serviços, localização, conteúdo e contato no Instagram; continuidade até WhatsApp, agenda ou agregador | Ajudar quem pesquisa a encontrar informações, conhecer o atendimento e avançar para o contato | Síntese; Google; Instagram e contato; prioridades e eventual página própria; convite |
 | Somente Google, sem Instagram e sem site próprio | Informações comerciais, acesso ao contato, avaliações e respostas, fotos e apresentação dos serviços | O perfil reúne as informações públicas disponíveis para quem está escolhendo | Síntese; informações e contato; reputação e apresentação; prioridades e necessidade de outro canal; convite |
-| Somente Instagram, sem Google e sem site próprio | Bio, serviços, localização pertinente, conteúdo observado, confiança e caminho de contato; adequação de uma presença local no Google | O Instagram apresenta o negócio; o Google pode complementar a descoberta de serviços locais quando pertinente | Síntese; Instagram e contato; descoberta local ou aprofundamento do Instagram; prioridades; convite |
+| Somente Instagram, sem Google e sem site próprio | Bio, serviços, localização pertinente, conteúdo observado, confiança e caminho de contato; adequação de uma presença local no Google | O Instagram apresenta o negócio; o Google pode complementar a descoberta de serviços locais quando pertinente | Abertura sobre descoberta; Google ausente confirmado; Instagram; prioridades; convite. Quando inelegível, aprofundar o Instagram sem prescrever Google |
 
 Sem site próprio, avaliar o destino real utilizado, que pode ser WhatsApp, agenda externa ou Linktree. Um agregador de links é uma rota de contato, não comprovação de site próprio. Sua existência também não comprova que não exista outro site.
 
@@ -58,18 +58,15 @@ Um diagnóstico pode explicar a utilidade de um canal ausente sem torná-lo prio
 
 ## Avaliação do Instagram
 
-Avaliar estas dimensões quando houver evidências acessíveis:
+A revisão comercial aprovada concentra o capítulo em três pontos:
 
-| Dimensão | O que observar | Relação com a decisão do possível cliente |
+| Dimensão | Leitura e conclusão | Direção |
 |---|---|---|
-| Identidade e atuação | Nome, bio, serviço apresentado e região quando pertinente | Entender quem atende, o que faz e se atende sua necessidade |
-| Clareza dos serviços | Conteúdos que expliquem o atendimento e dúvidas de quem procura | Conseguir avaliar interesse antes de chamar |
-| Confiança | Apresentação do profissional, ambiente e provas legítimas disponíveis | Reconhecer o negócio e formar confiança |
-| Orientação para agir | Bio, legendas, botões e instruções efetivamente observados | Saber como pedir informações ou marcar uma avaliação |
-| Destino do contato | URL específica, WhatsApp, agenda, agregador ou site | Conseguir continuar a partir do interesse |
-| Atividade e coerência | Datas da amostra, informações atualizadas e consistência entre canais | Identificar informação útil e atual, sem impor frequência universal |
+| Frequência | Contar as datas dos posts nos 30 dias anteriores à observação. Referência interna aprovada: pelo menos 12 posts em 30 dias. Informar o tamanho e o limite da amostra | Manter constância quando a referência é atendida; organizar a rotina quando a amostra fica abaixo. Sem datas, não emitir conclusão negativa |
+| Clareza e estrutura da bio | Identificar o serviço e explicar o que já ajuda a entender a atuação, o público e a localização quando observados. Mostrar trecho curto como evidência | Apresentar claramente o serviço na primeira linha, preservando informações úteis |
+| CTA da bio | Verificar convite explícito para agendamento ou contato na própria bio. Setas não equivalem a um convite; CTA nas legendas não comprova CTA na bio | Manter a chamada clara quando presente; indicar uma chamada adequada, como “Agende sua avaliação”, quando ausente |
 
-Cada dimensão recebe uma conclusão: ponto forte, oportunidade sustentada, informação insuficiente ou não aplicável. Registrar evidência, escopo e data; não calcular uma nota global fictícia.
+Não apresentar “destino precisa de confirmação”, “esse caminho entrou na análise” nem pedir ao prospect para conferir o link. Falhas ou dados ausentes são limites da nossa análise. Testes técnicos de contato ficam no assunto próprio, sem substituir a conclusão do Instagram. A referência de frequência é uma diretriz da operação, sem promessa de resultado e sem assumir que a amostra contém todo o histórico.
 
 O documento deve apresentar ao menos uma conclusão específica do Instagram quando ele for avaliado. Se estiver bem organizado, mostrar isso. Se falhar a coleta, registrar cobertura parcial e aprofundar os canais disponíveis sem emitir diagnóstico negativo do Instagram.
 
@@ -211,3 +208,7 @@ A apresentação detalhada usa de quatro a dez páginas conforme os canais obser
 ## Revisão após o primeiro diagnóstico publicado
 
 Prévia da Inbelle aprovada no chat: abertura personalizada; Google e reputação; Instagram e WhatsApp; prioridades; CTA gratuito de 20 minutos sem compromisso. O gerador foi comparado visualmente com essa prévia, além dos testes técnicos. Layout preserva corpo 27–28 px em largura 810 px. As páginas do PDF da Inbelle foram conferidas integralmente; três cenários e casos de coleta parcial também foram exportados. Não houve nova coleta paga.
+
+## Prioridade quando o Google está ausente, 07/10/2026
+
+Ausência confirmada com método, data e referência deve conduzir a abertura e o primeiro capítulo, antes do Instagram. Explicar descoberta de serviços, confiança, informações e contato. A elegibilidade desconhecida não elimina essa explicação, mas condiciona a implantação à confirmação da modalidade de atendimento e à conferência de possíveis cadastros. Negócio inelegível não recebe recomendação de criação. O Instagram mantém uma análise própria. O CTA explica que a conversa ajuda a definir o primeiro passo para a presença no Google, com 20 minutos, sem custo e sem compromisso de contratação.

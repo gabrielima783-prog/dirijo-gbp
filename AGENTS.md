@@ -49,9 +49,14 @@ Aplicação local preservada e versão compartilhada na VPS, com autenticação 
 - Esta revisão substitui as direções comerciais de duas páginas de 02 e 05/10, mantidas acima como histórico.
 - Google e Instagram sem site, somente Google e somente Instagram recebem leitura própria. Site não é uma oferta automática; explicar necessidades concretas de descoberta, confiança e contato. Google exige pertinência e elegibilidade antes de recomendar criação.
 - URL vazia, perfil não localizado, acesso restrito e falha de coleta não comprovam ausência. Confirmar inexistência com método, data e referência; priorizar os canais realmente observados.
-- Instagram avaliado sempre tem conclusão visível, incluindo pontos positivos. Bio, serviços, confiança, convites e destino de contato entram na leitura; frequência e contadores isolados não definem problema comercial.
+- Instagram avaliado sempre tem conclusão visível, incluindo pontos positivos. O capítulo comercial se concentra em frequência de publicação, clareza e estrutura da bio e CTA explícito da bio. Referência aprovada: 12 posts em 30 dias, limitada às datas da amostra; contadores totais e legendas não substituem essa leitura. Não transferir a conferência de links para o prospect.
 - Sem achado sustentado, sinalizar revisão. Preservar escopo das amostras e fontes legíveis. CTA: “Quero definir minha prioridade”, com 20 minutos, sem custo e sem compromisso de contratação.
 
 ## Revisão editorial após a Inbelle, 07/10/2026
 - A quantidade de páginas acompanha os capítulos, não a contagem de achados. Google e Instagram ficam separados; contato técnico ganha página própria. Inbelle: cinco páginas. Quatro apenas quando há um capítulo; seis quando três assuntos exigem aprofundamento.
 - Preservar abertura personalizada, evidência interpretada, importância, direção e CTA. Não adicionar cobertura interna ou site genérico à página de prioridades. Comparar o PDF gerado pela aplicação com a prévia aprovada antes de publicar, além da validação técnica.
+
+## Ajuste Google ausente e Instagram, 07/10/2026
+- Ausência confirmada do Google é o eixo principal: abertura, capítulo Google, capítulo Instagram, prioridades e CTA, em cinco páginas quando há Instagram avaliado. Elegibilidade desconhecida permite explicar o valor do canal, mas a criação fica condicionada à modalidade de atendimento; inelegibilidade não gera prescrição de perfil.
+- Nesse cenário, o teste técnico de contato fica secundário nas prioridades. O Instagram conserva seu capítulo com frequência, bio e CTA, sem misturar assunto de site ou pedir que o prospect confira links.
+- A contagem de posts usa os 30 dias anteriores à observação, independentemente da ordem da amostra. Não afirmar histórico completo, inexistência de publicações ou falta de CTA por falha de leitura.

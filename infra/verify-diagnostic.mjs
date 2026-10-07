@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { AnalysisRepository } from '../dist/server/repository.js';
 import { AuthStore } from '../dist/server/auth.js';
+import { confirmedAbsence } from '../dist/core/channel-presence.js';
 import { buildCompactDiagnostic } from '../dist/core/compact-diagnostic.js';
 import { exportAnalysisPdf } from '../dist/server/pdf.js';
 
@@ -21,6 +22,12 @@ try {
     if (model.pageCount !== model.editorialPages.length + 3 || model.pageCount < 4 || model.pageCount > 6) throw new Error('Invalid commercial page count');
     if (analysis.sourceStatuses.instagram.status === 'completed' && !model.coverage.some(item=>item.source==='Instagram')) throw new Error('Instagram coverage omitted');
     if (model.coverage.some(item=>item.source==='Instagram' && item.evidenceIds.length) && !model.editorialPages.some(page=>page.section.startsWith('Instagram'))) throw new Error('Instagram chapter omitted');
+    if (confirmedAbsence(analysis.input.channelPresence?.google) && !analysis.input.mapsUrl && analysis.input.googleEligibility !== 'ineligible' && model.findings.some(item=>item.source==='Perfil no Google' && /encontrado/.test(item.title))) {
+      if (!model.editorialPages[0]?.section.startsWith('Google') || !/Google/.test(model.headline)) throw new Error('Confirmed Google absence lost its main chapter');
+      if (model.editorialPages.some(page=>page.section.startsWith('Instagram')) && model.pageCount !== 5) throw new Error('Google absence and Instagram must have five pages');
+    }
+    const instagramChapter = model.editorialPages.find(page=>page.section.startsWith('Instagram'));
+    if (instagramChapter && (!instagramChapter.blocks?.some(block=>block.title.startsWith('Frequência')) || !instagramChapter.blocks.some(block=>block.title.includes('bio')) || !instagramChapter.blocks.some(block=>block.title.includes('ação')))) throw new Error('Instagram cadence, bio or CTA conclusion omitted');
     temporary = await mkdtemp(join(tmpdir(),'gbp-pdf-smoke-'));
     renderer = new AuthStore(db).renderer(analysis.id);
     const result = await exportAnalysisPdf({analysisId:analysis.id,outputPath:join(temporary,'smoke.pdf'),compact:true,baseUrl:'http://127.0.0.1:8787',sessionToken:renderer.token,expectedSlideCount:model.pageCount,timeoutMs:60000});

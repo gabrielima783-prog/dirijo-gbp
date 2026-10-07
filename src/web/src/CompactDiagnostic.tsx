@@ -39,10 +39,10 @@ export function CompactDiagnostic({ analysis }: { analysis: Analysis }) {
       {diagnostic.priorities.map((priority,index)=><div class="priority" key={priority.title}><span>0{index+1}</span><div><p class="label">{priority.label??(index===0?'Primeiro':index===diagnostic.priorities.length-1?'Para decidir na conversa':'Em seguida')}</p><h3>{priority.title}</h3><p>{priority.body}</p></div></div>)}
     </Page>
     <Page number={diagnostic.pageCount} section="Conversa com Gabriel · Dirijo" dark>
-      <h2>Qual ponto vale<br/>cuidar primeiro<br/><em>{company.length>28 ? (diagnostic.patientBusiness?'na sua clínica':'na sua empresa') : `na ${company}`}?</em></h2><p class="lead">Vamos ligar os pontos desta análise aos serviços que {company} quer fortalecer agora.</p>
+      <h2>Qual ponto vale<br/>cuidar primeiro<br/><em>{company.length>28 ? (diagnostic.patientBusiness?'na sua clínica':'na sua empresa') : `na ${company}`}?</em></h2><p class="lead">{diagnostic.cta.body}</p>
       <div class="meeting"><h3>Você sai da conversa com:</h3>
         <div class="entry"><span>01</span><p><strong>Uma prioridade definida</strong> para o momento do negócio.</p></div>
-        <div class="entry"><span>02</span><p><strong>Uma recomendação prática</strong> para reputação ou contato.</p></div>
+        <div class="entry"><span>02</span><p><strong>Uma recomendação prática</strong> para {diagnostic.cta.focus}.</p></div>
         <div class="entry"><span>03</span><p><strong>Clareza sobre como a Dirijo pode ajudar</strong> e o próximo passo.</p></div>
       </div>
       <div class="offer"><h3>Vamos olhar isso juntos?</h3><p>Eu, Gabriel, vou explicar por onde começaria.</p><p class="meta">20 minutos · Sem custo</p><p class="commitment">Sem compromisso de contratação.</p><a class="button" href={diagnostic.cta.url} target="_blank" rel="noopener noreferrer">{diagnostic.cta.button}<span aria-hidden="true">→</span></a></div>

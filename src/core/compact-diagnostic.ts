@@ -62,7 +62,7 @@ export interface CompactDiagnostic {
   solutionTitle: string;
   questions: string[];
   services: Array<{ title: string; body: string }>;
-  cta: { headline: string; body: string; button: string; url: string; durationMinutes: 20 };
+  cta: { headline: string; body: string; button: string; url: string; durationMinutes: 20; focus: string };
 }
 
 type RecordValue = Record<string, unknown>;
@@ -71,6 +71,31 @@ const numeric = (value: unknown): number | undefined => typeof value === 'number
 const text = (value: unknown): string => typeof value === 'string' ? value.trim() : '';
 const shorten = (value: string, max: number) => value.length <= max ? value : `${value.slice(0, max - 1).replace(/\s+\S*$/, '').trim()}…`;
 const isReliable = (evidence: CompactDiagnosticInput['evidence'][number]) => (evidence.confidence ?? 0) >= 0.8;
+/** Instagram conclusions cover only observed cadence, biography and its invitation. */
+function instagramReading(value: RecordValue, observedAt: string) {
+  const manual = record(value.checklist ?? record(value.manual).checklist ?? value.manual);
+  const bio = text(value.biography) || text(manual.bio);
+  const posts = Array.isArray(value.latestPosts) ? value.latestPosts.map(record) : [];
+  const observation = Date.parse(observedAt);
+  const dates = posts.map(post => Date.parse(text(post.publishedAt))).filter(date => Number.isFinite(date) && date <= observation);
+  const recent = dates.filter(date => date > observation - 30 * 86_400_000).length;
+  const hasDates = Number.isFinite(observation) && dates.length > 0;
+  const completeDates = hasDates && dates.length === posts.length;
+  const service = /rejuvenesc|facial|corporal|cl[ií]nica|est[eé]tica|servi[çc]|atend|nutri|odont|procedimento|especial|consulta|tratamento|produto|terapia|jo[ií]a|turismo|advoca|fisioterap/i.test(bio);
+  const audience = /pacientes?\s*\d|\d+\s*\+|mulheres|homens|crian[çc]|gestantes|empresas/i.test(bio);
+  const location = /\b(?:RJ|ES|SP|MG|BH)\b|ilha do governador|vila velha|vit[oó]ria|rio de janeiro|belo horizonte|localiza|endere[çc]/i.test(bio);
+  const invitation = /agend|marque|fa[çc]a (?:a |sua |uma )?avalia[çc][ãa]o|whatsapp|entre em contato|fale (?:conosco|com)|link (?:da |na )?bio|clique|reserve|pe[çc]a/i.test(bio + ' ' + text(manual.callToAction));
+  const frequency = hasDates && !completeDates ? `A amostra registra ${recent} posts com data nos últimos 30 dias. Há datas indisponíveis; não concluímos se a frequência está adequada.` : hasDates
+    ? `Amostra: ${recent} de ${posts.length} posts nos últimos 30 dias. ${recent >= 12 ? 'Atinge a referência de 12 posts no período. Manter a constância.' : 'Abaixo da referência de 12 posts no período. Organizar uma rotina de publicação.'}`
+    : 'As publicações disponíveis não têm datas suficientes para avaliar a frequência. Este diagnóstico não conclui se o ritmo está adequado.';
+  const biography = bio ? `“${shorten(bio.replace(/\s+/g, ' '), 95)}” ${service ? `A bio identifica a atuação${audience ? ' e o público' : ''}${location ? ', com referência de localização' : ''}.` : 'O trecho não identifica claramente o serviço. Explicitar a atuação na primeira linha.'}` : 'O texto da bio não ficou disponível na análise. Não há base para avaliar sua clareza ou estrutura.';
+  const cta = invitation && !bio ? 'A revisão manual registrou um convite para contato. Sem o texto completo da bio, não avaliamos sua estrutura.' : invitation ? 'A bio contém um convite para agendamento ou contato. Manter essa chamada explícita junto da apresentação do serviço.' : bio ? 'Não há convite explícito na bio. Acrescentar “Agende sua avaliação” ou outra chamada de contato para orientar quem se interessou.' : 'Sem o texto da bio, não foi possível avaliar o CTA. Não concluímos que ele esteja ausente.';
+  const gaps = [completeDates && recent < 12 ? 'a constância de publicação' : '', bio && !service ? 'a clareza do serviço na bio' : '', bio && !invitation ? 'o convite para contato na bio' : ''].filter(Boolean);
+  const direction = gaps.length ? [completeDates && recent < 12 ? 'Organizar a rotina para a referência de 12 publicações em 30 dias.' : '', bio && !service ? 'Explicitar o serviço na primeira linha da bio.' : '', bio && !invitation ? 'Acrescentar à bio um convite explícito para contato ou avaliação.' : ''].filter(Boolean).join(' ') : 'Manter a apresentação clara, a chamada para contato e uma rotina de publicações consistente.';
+  const title = completeDates && recent < 12 ? 'Ajustar a constância das publicações.' : bio && !service ? 'Explicitar o serviço na bio.' : bio && !invitation ? 'Completar a bio com um convite.' : 'Manter o que já funciona no perfil.';
+  return { bio, posts, frequency, biography, cta, service, invitation, gaps, direction, title, hasDates, recent,
+    summary: gaps.length ? `${hasDates ? `A amostra registra ${recent} posts em 30 dias. ` : ''}${bio && !invitation ? 'A bio apresenta o perfil, mas falta um convite explícito para contato.' : bio && !service ? 'A bio precisa explicitar o serviço oferecido.' : 'A prioridade é manter uma rotina de conteúdo mais constante.'}` : `${hasDates ? `A amostra registra ${recent} posts em 30 dias. ` : ''}${service && invitation ? 'A bio identifica a atuação e orienta o contato.' : 'Os dados disponíveis não sustentam uma conclusão sobre todos os três pontos.'}` };
+}
 /** Commercial copy is derived from source facts, independently of older AI slides. */
 export function buildCompactDiagnostic(analysis: CompactDiagnosticInput): CompactDiagnostic {
   const evidence = analysis.evidence.filter(isReliable);
@@ -120,13 +145,15 @@ export function buildCompactDiagnostic(analysis: CompactDiagnosticInput): Compac
     source: 'Avaliações no Google', evidenceIds: [reviews.id], kind: 'verification',
   });
 
-  const googlePresence = analysis.input.channelPresence?.google ?? maps?.channelPresence ?? record(maps?.value).presence as Presence | undefined;
-  if (confirmedAbsence(googlePresence) && !text(analysis.input.mapsUrl) && !text(profile.title) && analysis.input.googleEligibility === 'eligible') add(opportunities, {
-    title: 'Confirmar a criação de um perfil local no Google.',
-    body: 'A ausência foi confirmada. Para um negócio local elegível, um perfil pode reunir localização, horários, serviços e contato para quem pesquisa.',
-    source: 'Perfil no Google', evidenceIds: maps ? [maps.id] : [], kind: 'opportunity',
-    consequence: 'Esse canal pode complementar a descoberta local; a ausência não comprova invisibilidade em toda a busca.',
-    direction: 'Conferir possíveis perfis existentes e a elegibilidade antes de iniciar o cadastro.',
+  const googleCoverage = evidence.find(item => item.source === 'maps' && item.category === 'coverage');
+  const googlePresence = analysis.input.channelPresence?.google ?? maps?.channelPresence ?? googleCoverage?.channelPresence ?? record(googleCoverage?.value).presence as Presence | undefined;
+  const missingGoogleOpportunity = confirmedAbsence(googlePresence) && !text(analysis.input.mapsUrl) && !text(profile.title) && analysis.input.googleEligibility !== 'ineligible';
+  if (missingGoogleOpportunity) add(opportunities, {
+    title: 'Ser encontrado por quem procura seus serviços no Google.',
+    body: `A verificação registrada não identificou um Perfil da Empresa no Google para ${companyName}. Esse canal merece atenção na descoberta dos serviços.`,
+    source: 'Perfil no Google', evidenceIds: googleCoverage ? [googleCoverage.id] : [], kind: 'opportunity',
+    consequence: 'Quem busca um serviço na região pode não conhecer seu nome ou Instagram. Um perfil ajuda a apresentar seu trabalho nesse momento de escolha.',
+    direction: analysis.input.googleEligibility === 'eligible' ? 'Conferir possíveis cadastros existentes e preparar um perfil com serviços, informações corretas, fotos e contato.' : 'Confirmar o atendimento presencial ou no endereço do cliente e conferir possíveis cadastros. Depois, planejar serviços, fotos e contato.',
   });
   else if (maps && profile.present !== false && analysis.sourceStatuses.maps?.status === 'completed' && text(profile.title)) {
     if (score !== undefined && score >= 4.5 && (totalReviews ?? 0) > 0) add(strengths, {
@@ -177,21 +204,14 @@ export function buildCompactDiagnostic(analysis: CompactDiagnosticInput): Compac
   });
   const instagramAssessed = Boolean(instagram && instagramValue.privateAccount !== true && analysis.sourceStatuses.instagram?.status === 'completed');
   if (instagramAssessed) {
-    const manualValue = record(instagramValue.manual);
-    const manual = record(instagramValue.checklist ?? manualValue.checklist ?? instagramValue.manual);
-    const biography = text(instagramValue.biography) || text(manual.bio);
-    const externalUrl = text(instagramValue.externalUrl) || text(manual.bioLink);
-    const serviceLanguage = /cl[ií]nica|est[eé]tica|servi[çc]|atend|nutri|odont|procedimento|especial|consulta|tratamento|produto|terapia|jo[ií]a|turismo|advoca|fisioterap/i.test(biography);
-    const posts = Array.isArray(instagramValue.latestPosts) ? instagramValue.latestPosts.map(record) : [];
-    const sampleText = [biography, text(manual.callToAction), ...posts.map(post => text(post.caption))].join(' ');
-    const hasInvitation = /agend|marque|fa[çc]a (?:a |sua |uma )?avalia[çc][ãa]o|whatsapp|entre em contato|fale (?:conosco|com)|link (?:da |na )?bio/i.test(sampleText);
-    const bioSummary = biography ? `Bio observada: “${shorten(biography, 95)}”.` : 'A descrição da atuação precisa de confirmação.';
-    let destinationSummary = 'O destino de contato não pôde ser confirmado.';
-    const publicDestination = text(instagramValue.externalUrl) || text(manual.bioLink);
-    try { if (publicDestination) destinationSummary = `Link identificado: ${new URL(publicDestination).hostname}.`; } catch { if (publicDestination) destinationSummary = 'Destino registrado na observação manual; endereço a conferir.'; }
-    const details = [bioSummary, hasInvitation ? 'A bio ou as legendas observadas orientam o contato ou uma avaliação.' : 'A orientação para contato exige leitura contextual.', destinationSummary];
-    if (text(manual.opportunities)) add(opportunities, { title: 'Instagram: oportunidade observada na revisão.', body: shorten(text(manual.opportunities), 240), source: 'Instagram', evidenceIds: [instagram!.id], kind: 'opportunity', consequence: 'Esse ponto pode influenciar como o interessado entende a atuação e chega ao contato. Não medimos o resultado comercial.', direction: 'Conferir o trecho observado e escolher um ajuste de clareza ou orientação compatível com os serviços prioritários.' });
-    coverage.push({ title: text(instagramValue.username) ? `Instagram: @${shorten(text(instagramValue.username), 30)}.` : 'Instagram: apresentação e contato.', body: details.join(' ') + (posts.length ? ` Amostra: ${posts.length} publicações.` : ' Sem amostra de publicações confirmada.'), source: 'Instagram', evidenceIds: [instagram!.id], kind: serviceLanguage && hasInvitation ? 'strength' : 'verification' });
+    const reading = instagramReading(instagramValue, instagram!.observedAt);
+    if (reading.gaps.length) add(opportunities, {
+      title: reading.title, body: reading.summary,
+      source: 'Instagram', evidenceIds: [instagram!.id], kind: 'opportunity',
+      consequence: 'A constância mantém o trabalho visível; uma bio clara ajuda a entender o serviço e o próximo passo.',
+      direction: reading.direction,
+    });
+    coverage.push({ title: text(instagramValue.username) ? `Instagram: @${shorten(text(instagramValue.username), 30)}.` : 'Instagram: frequência, bio e CTA.', body: `${reading.frequency} ${reading.biography} ${reading.cta}`, source: 'Instagram', evidenceIds: [instagram!.id], kind: reading.service && reading.invitation ? 'strength' : 'verification' });
   }
   for (const [channel, label, source] of [['google', 'Google', 'maps'], ['instagram', 'Instagram', 'instagram'], ['website', 'Site próprio', 'website']] as const) {
     if ((channel === 'google' && googleAssessed) || (channel === 'instagram' && instagramAssessed)) continue;
@@ -212,8 +232,9 @@ export function buildCompactDiagnostic(analysis: CompactDiagnosticInput): Compac
     return confirmedAbsence(presence) && !text(inputUrl) && !(channel === 'google' && googleAssessed) && !(channel === 'instagram' && instagramAssessed) && !(channel === 'website' && ownWebsiteObserved);
   };
   const scenario: CompactDiagnostic['scenario'] = googleAssessed && instagramAssessed && confirmedAbsent('website') ? 'google_instagram' : googleAssessed && confirmedAbsent('instagram') && confirmedAbsent('website') ? 'google_only' : instagramAssessed && confirmedAbsent('google') && confirmedAbsent('website') ? 'instagram_only' : 'partial';
-  // Contact comes first when its specific destination and technical measurement match.
-  opportunities.sort((a, b) => Number(b.source === 'Caminho de contato') - Number(a.source === 'Caminho de contato'));
+  // Confirmed Google absence leads the commercial narrative; contact stays secondary in this scenario.
+  const opportunityOrder = (item: CompactFinding) => missingGoogleOpportunity ? item.source === 'Perfil no Google' ? 0 : item.source === 'Instagram' ? 1 : 2 : item.source === 'Caminho de contato' ? 0 : 1;
+  opportunities.sort((a, b) => opportunityOrder(a) - opportunityOrder(b));
   const findings = opportunities.slice(0, 2).map(finding => ({
     ...finding,
     consequence: finding.consequence ?? 'Responder aos relatos pode valorizar a confiança já demonstrada e apoiar quem está escolhendo. Não medimos o efeito comercial.',
@@ -222,18 +243,11 @@ export function buildCompactDiagnostic(analysis: CompactDiagnosticInput): Compac
   const dateValue = maps?.observedAt || reviews?.observedAt || instagram?.observedAt || analysis.createdAt;
   const parsedDate = new Date(dateValue);
   const date = Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-  const manual = record(instagramValue.checklist ?? record(instagramValue.manual).checklist ?? instagramValue.manual);
-  const biography = text(instagramValue.biography) || text(manual.bio);
   const posts = Array.isArray(instagramValue.latestPosts) ? instagramValue.latestPosts.map(record) : [];
-  const externalUrl = text(instagramValue.externalUrl) || text(manual.bioLink);
-  let destination: 'whatsapp' | 'links' | 'website' | 'unknown' = 'unknown';
-  try {
-    const host = new URL(externalUrl).hostname.toLowerCase();
-    destination = /(^|\.)(wa\.me|whatsapp\.com)$/.test(host) ? 'whatsapp' : /(^|\.)linktr\.ee$/.test(host) ? 'links' : /(^|\.)(instagram\.com|facebook\.com)$/.test(host) ? 'unknown' : 'website';
-  } catch { /* An unconfirmed destination never becomes a contact claim. */ }
   const googleFinding = findings.find(item => item.source === 'Avaliações no Google' || item.source === 'Perfil no Google');
   const instagramFinding = opportunities.find(item => item.source === 'Instagram');
-  const contactFinding = findings.find(item => item.source === 'Caminho de contato');
+  const contactFinding = opportunities.find(item => item.source === 'Caminho de contato');
+  const absentGoogleFinding = missingGoogleOpportunity ? opportunities.find(item => item.source === 'Perfil no Google') : undefined;
   const positiveReputation = googleAssessed && score !== undefined && score >= 4.5 && (totalReviews ?? 0) > 0;
   const editorialPages: CompactEditorialPage[] = [];
   const openingItems: CompactDiagnostic['openingItems'] = [];
@@ -250,52 +264,44 @@ export function buildCompactDiagnostic(analysis: CompactDiagnosticInput): Compac
     });
     openingItems.push({ title: positiveReputation ? 'Valorizar a confiança no Google.' : 'Cuidar da apresentação no Google.', body: missingResponses ? `As ${sample! - responseCount!} avaliações analisadas estavam sem resposta pública. Há espaço para tornar a atenção da empresa mais visível.` : googleFinding?.body ?? 'O perfil e os relatos públicos ajudam quem pesquisa a conhecer a empresa antes do contato.' });
   }
+  if (absentGoogleFinding) {
+    editorialPages.push({ section: 'Google · Descoberta e escolha', title: 'Seu trabalho também pode', emphasis: 'ser descoberto no Google.', intro: absentGoogleFinding.body,
+      blocks: [{ title: 'Por que isso importa.', body: absentGoogleFinding.consequence! }, { title: 'Como o perfil pode ajudar.', body: 'Serviços, localização, fotos, avaliações e contato dão contexto para a pessoa conhecer o negócio e decidir com quem conversar.' }, { title: 'Por onde eu começaria.', body: absentGoogleFinding.direction! }],
+      note: 'Fonte: verificação registrada do negócio. A criação depende da modalidade de atendimento. O efeito sobre contatos não foi medido.', finding: absentGoogleFinding });
+    openingItems.push({ title: 'Ser encontrado nas buscas locais.', body: 'A verificação não identificou um perfil. Esse canal pode reunir serviços, avaliações e contato para quem procura uma opção na região.' });
+  }
   if (instagramAssessed) {
     const username = text(instagramValue.username);
-    const actuation = /est[eé]tica integrativa/i.test(biography) ? 'estética integrativa' : /est[eé]tica/i.test(biography) ? 'estética' : /nutri/i.test(biography) ? 'nutrição' : /odont|dentist/i.test(biography) ? 'odontologia' : /fisioterap/i.test(biography) ? 'fisioterapia' : /psicolog/i.test(biography) ? 'psicologia' : /turismo/i.test(biography) ? 'turismo' : /advoca/i.test(biography) ? 'advocacia' : '';
-    const scope = /corporal/i.test(biography) && /facial/i.test(biography) ? ' e atuação corporal e facial' : '';
-    const bioInterpretation = actuation ? `a bio apresenta ${actuation}${scope}` : /servi[çc]|atend|procedimento|especial|consulta|tratamento|produto|terapia/i.test(biography) ? 'a bio apresenta informações sobre a atuação da empresa' : 'a descrição pública oferece um primeiro contato com a empresa';
-    const destinationSentence = destination === 'whatsapp' ? 'O link do perfil direciona para o WhatsApp.' : destination === 'links' ? 'O link do perfil direciona para uma página de links.' : destination === 'website' ? 'O link do perfil direciona para uma página externa.' : 'O destino de contato precisa de confirmação.';
-    const observedFormats = [...new Set(posts.map(post => text(post.format)).filter(format => ['vídeo', 'carrossel', 'imagem'].includes(format)))];
-    const formats = observedFormats.length > 1 ? observedFormats.filter(format => format !== 'imagem') : observedFormats;
-    const formatCopy = formats.length ? `, com ${formats.map(format => format === 'imagem' ? 'imagens' : format === 'carrossel' ? 'carrosséis' : 'vídeos').join(', ')}` : '';
-    const proofObserved = posts.some(post => /depoimento|antes e depois|feedback|resultado (?:delicado|obtido|alcançado)|cliente.*(?:conta|relata)/i.test(text(post.caption))) && (numeric(record(instagramValue.signals).postsWithProofSignals) ?? 0) > 0;
+    const reading = instagramReading(instagramValue, instagram!.observedAt);
     editorialPages.push({
-      section: 'Instagram · Apresentação e contato', title: 'O Instagram apresenta.', emphasis: destination === 'whatsapp' ? 'O WhatsApp é o próximo passo.' : destination === 'unknown' ? 'O próximo passo merece uma conferência.' : 'O link conduz ao próximo passo.',
-      intro: `${username ? `No @${username}` : 'No perfil observado'}, ${bioInterpretation}. ${destinationSentence}`,
-      ...(destination !== 'unknown' ? { path: [{ title: 'Conhecer', body: 'Instagram e conteúdo' }, { title: 'Se interessar', body: 'Entender a atuação' }, { title: 'Entrar em contato', body: destination === 'whatsapp' ? 'Link para WhatsApp' : destination === 'links' ? 'Página de links' : 'Página externa' }] } : {}),
-      blocks: [{ title: 'O que já ajuda.', body: posts.length ? `A amostra reúne ${posts.length} publicações${formatCopy}. ${proofObserved ? 'Também aparecem relatos ou resultados de atendimentos.' : 'Os conteúdos ajudam a conhecer o trabalho da empresa.'}` : 'O perfil apresenta a empresa publicamente. A amostra disponível não permite concluir sobre os formatos ou a frequência do conteúdo.' }, { title: instagramFinding ? 'O ponto observado na revisão.' : 'O que eu conferiria.', body: instagramFinding ? instagramFinding.body : `Se o serviço prioritário fica claro e se o link ${destination === 'whatsapp' ? 'abre o WhatsApp correto' : 'conduz ao destino esperado'} no celular. Uma orientação clara ajuda a pessoa a continuar até o contato.` }],
-      note: `Fonte: ${biography ? 'bio, ' : ''}${externalUrl ? 'link público' : 'perfil público'}${posts.length ? ` e ${posts.length} publicações` : ''}. ${externalUrl ? 'Link identificado; funcionamento no celular a conferir. ' : ''}Stories, destaques e conversas não avaliados.`, ...(instagramFinding ? { finding: instagramFinding } : {}),
+      section: 'Instagram · Apresentação e contato', title: 'Frequência, bio e CTA.',
+      emphasis: reading.gaps.length ? 'O que merece ajuste.' : 'O que já funciona.',
+      intro: `${username ? `@${username}. ` : ''}Três pontos que ajudam a conhecer o trabalho e iniciar o contato.`,
+      blocks: [{ title: 'Frequência de publicação.', body: reading.frequency }, { title: 'Clareza e estrutura da bio.', body: reading.biography }, { title: 'Chamada para ação na bio.', body: reading.cta }],
+      note: `Fonte: bio e amostra de ${posts.length} publicações, observadas em ${new Date(instagram!.observedAt).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}. A amostra não garante todo o histórico. Stories e conversas não avaliados.`,
+      ...(instagramFinding ? { finding: instagramFinding } : {}),
     });
-    openingItems.push({ title: 'Preservar o caminho até o contato.', body: `O Instagram apresenta a atuação da empresa${destination === 'whatsapp' ? ' e possui um link para o WhatsApp' : destination !== 'unknown' ? ' e possui um destino externo no perfil' : ''}. Esse caminho também entrou na análise.` });
+    openingItems.push({ title: reading.title, body: reading.summary });
   }
-  if (contactFinding) {
+  if (contactFinding && !absentGoogleFinding) {
     editorialPages.push({ section: 'Contato · Abertura no celular', title: 'Ela se interessou.', emphasis: 'O contato precisa ser simples.', intro: `${contactFinding.body} ${contactFinding.consequence}`,
       ...(contactFinding.proof ? { metrics: contactFinding.proof.map(proof => ({ ...proof, evidenceIds: contactFinding.evidenceIds })) } : {}), blocks: [{ title: 'Por onde eu começaria.', body: contactFinding.direction! }], note: 'Fonte: teste técnico do destino no celular. Esse tempo não mede quando o botão ficou clicável nem o tempo até uma conversa.', finding: contactFinding });
-    const contactOpening = { title: contactFinding.title, body: instagramAssessed ? 'O link do Instagram também entrou na análise. O teste mostrou uma abertura que merece revisão no celular.' : 'O teste do destino identificado mostrou uma abertura que merece revisão no celular. O impacto sobre contatos não foi medido.' };
-    const instagramOpening = instagramAssessed ? openingItems.findIndex(item => item.title === 'Preservar o caminho até o contato.') : -1;
-    if (instagramOpening >= 0) openingItems[instagramOpening] = contactOpening;
-    else openingItems.push(contactOpening);
-  }
-  const absentGoogleFinding = !googleAssessed ? findings.find(item => item.source === 'Perfil no Google') : undefined;
-  if (absentGoogleFinding) {
-    editorialPages.push({ section: 'Google · Descoberta local', title: 'Quem pesquisa precisa de contexto.', emphasis: 'Um perfil local pode complementar o Instagram.', intro: absentGoogleFinding.body, blocks: [{ title: 'Por que considerar esse canal.', body: absentGoogleFinding.consequence! }, { title: 'Antes de criar.', body: absentGoogleFinding.direction! }], note: 'Ausência confirmada e elegibilidade local informada. A criação depende de conferir possíveis perfis existentes.', finding: absentGoogleFinding });
-    openingItems.push({ title: 'Complementar a descoberta local.', body: 'A ausência do perfil foi confirmada. Sua criação merece análise por se tratar de um negócio local elegível.' });
+
   }
   if (!editorialPages.length) editorialPages.push({ section: 'Direção · Revisão necessária', title: 'A conclusão precisa de mais contexto.', emphasis: 'Vamos conferir antes de recomendar.', intro: 'As evidências disponíveis não sustentam uma oportunidade específica para esta empresa.', blocks: [{ title: 'Antes de escolher ajustes.', body: 'Confirmar os canais da empresa e revisar as informações públicas disponíveis.' }], note: 'Informações desconhecidas e falhas de leitura não comprovam problemas no negócio.' });
   const priorities: CompactDiagnostic['priorities'] = [];
+  if (absentGoogleFinding) priorities.push({ label: 'Primeiro', title: 'Preparar a descoberta no Google.', body: absentGoogleFinding.direction! });
   if (googleAssessed && googleFinding) priorities.push({ label: 'Primeiro', title: googleFinding.source === 'Avaliações no Google' ? 'Organizar as respostas no Google.' : googleFinding.title, body: googleFinding.source === 'Avaliações no Google' ? `Começar pelos relatos recentes torna a atenção de ${companyName} visível para quem está pesquisando. É uma oportunidade confirmada nesta análise.` : googleFinding.direction! });
-  if (contactFinding) priorities.push({ label: priorities.length ? 'Em seguida' : 'Primeiro', title: contactFinding.title, body: contactFinding.direction! });
-  else if (instagramAssessed) priorities.push({ label: priorities.length ? 'Em seguida' : 'Primeiro', title: destination === 'whatsapp' ? 'Conferir Instagram e WhatsApp.' : 'Conferir apresentação e contato.', body: instagramFinding?.direction ?? 'Preservar os conteúdos úteis e conferir o serviço em destaque, o convite para contato e o destino do link no celular.' });
+  if (contactFinding) priorities.push({ label: priorities.length ? 'Em seguida' : 'Primeiro', title: contactFinding.title, body: absentGoogleFinding ? `O teste do destino registrou ${speedScore}/100${lcpSeconds !== undefined ? ` e ${lcpSeconds.toFixed(1).replace('.', ',')} s até o elemento principal` : ''}. Conferir o acesso ao contato no celular; esse tempo não mede quando o botão ficou clicável.` : contactFinding.direction! });
+  else if (instagramAssessed) priorities.push({ label: priorities.length ? 'Em seguida' : 'Primeiro', title: 'Organizar frequência, bio e CTA.', body: instagramReading(instagramValue, instagram!.observedAt).direction });
   else if (!priorities.length && googleAssessed) priorities.push({ label: 'Primeiro', title: 'Preservar a reputação e as informações.', body: 'Manter informações úteis e atualizadas para quem pesquisa a empresa antes do contato.' });
-  if (absentGoogleFinding) priorities.push({ label: priorities.length ? 'Em seguida' : 'Primeiro', title: 'Conferir a criação do perfil local.', body: absentGoogleFinding.direction! });
   if (scenario === 'google_only') priorities.push({ label: 'Para avaliar', title: 'Considerar como apresentar o trabalho.', body: 'Um Instagram pode mostrar serviços e esclarecer dúvidas antes do contato, se houver condição de manter conteúdo útil. Sua ausência não é uma falha automática.' });
-  if (scenario === 'instagram_only' && analysis.input.googleEligibility !== 'eligible') priorities.push({ label: 'Para avaliar', title: analysis.input.googleEligibility === 'ineligible' ? 'Aprofundar a apresentação no Instagram.' : 'Confirmar a modalidade do atendimento.', body: analysis.input.googleEligibility === 'ineligible' ? 'Para um negócio sem elegibilidade local, preservar o Instagram e fortalecer informações úteis ao público; não prescrever um perfil no Google.' : 'Entender se existe atendimento presencial ou serviço local elegível antes de recomendar um perfil no Google.' });
+  if (!absentGoogleFinding && scenario === 'instagram_only' && analysis.input.googleEligibility !== 'eligible') priorities.push({ label: 'Para avaliar', title: analysis.input.googleEligibility === 'ineligible' ? 'Aprofundar a apresentação no Instagram.' : 'Confirmar a modalidade do atendimento.', body: analysis.input.googleEligibility === 'ineligible' ? 'Para um negócio sem elegibilidade local, preservar o Instagram e fortalecer informações úteis ao público; não prescrever um perfil no Google.' : 'Entender se existe atendimento presencial ou serviço local elegível antes de recomendar um perfil no Google.' });
   if (!priorities.length) priorities.push({ label: 'Primeiro', title: 'Confirmar os canais e as informações.', body: 'Revisar a cobertura antes de escolher mudanças. As evidências disponíveis não sustentam um problema comercial.' });
   priorities.push({ label: 'Para decidir na conversa', title: 'Escolher o foco da aquisição.', body: 'Entender os serviços prioritários e a origem dos interessados. Isso orienta os próximos ajustes e ações de divulgação.' });
-  const headline = positiveReputation ? `Nota ${score!.toFixed(1).replace('.', ',')} no Google.` : googleAssessed ? 'Sua presença no Google ajuda na escolha.' : instagramAssessed ? 'Seu Instagram apresenta o negócio.' : 'Uma análise para escolher a direção.';
-  const openingEmphasis = positiveReputation ? 'Uma confiança que merece ser mais bem aproveitada.' : 'O próximo passo depende do que observamos.';
-  const intro = positiveReputation ? `Quem já passou por ${companyName} deixa uma boa avaliação. Olhamos como essa reputação${instagramAssessed ? ' e o Instagram ajudam' : ' ajuda'} quem ainda está escolhendo chegar ao contato.` : `Olhamos os canais públicos de ${companyName} para entender como apresentam a empresa e conduzem ao contato.`;
+  const headline = absentGoogleFinding ? 'Quem procura seu serviço no Google' : positiveReputation ? `Nota ${score!.toFixed(1).replace('.', ',')} no Google.` : googleAssessed ? 'Sua presença no Google ajuda na escolha.' : instagramAssessed ? 'Seu Instagram apresenta o negócio.' : 'Uma análise para escolher a direção.';
+  const openingEmphasis = absentGoogleFinding ? 'pode não estar chegando até você.' : positiveReputation ? 'Uma confiança que merece ser mais bem aproveitada.' : 'O próximo passo depende do que observamos.';
+  const intro = absentGoogleFinding ? `${instagramAssessed ? `O Instagram de ${companyName} já apresenta o trabalho. ` : ''}A ausência registrada do Perfil da Empresa no Google abre uma oportunidade de descoberta para quem procura serviços na região.` : positiveReputation ? `Quem já passou por ${companyName} deixa uma boa avaliação. Olhamos como essa reputação${instagramAssessed ? ' e o Instagram ajudam' : ' ajuda'} quem ainda está escolhendo chegar ao contato.` : `Olhamos os canais públicos de ${companyName} para entender como apresentam a empresa e conduzem ao contato.`;
   return {
     companyName, date, patientBusiness, pageCount: editorialPages.length + 3, editorialPages, openingItems, openingEmphasis,
     reviewRequired: findings.length === 0, scenario, coverage, priorities, strength: strengths[0],
@@ -304,11 +310,12 @@ export function buildCompactDiagnostic(analysis: CompactDiagnosticInput): Compac
     subtitle: 'Evidências públicas para escolher uma direção com contexto.',
     intro,
     metrics: metrics.slice(0, 2), findings,
-    bridge: positiveReputation && instagramAssessed ? 'A prioridade é aproveitar a reputação positiva e o conteúdo publicado, conferindo o caminho até o contato.' : positiveReputation ? 'A prioridade é aproveitar a reputação positiva, conferindo as informações e o caminho até o contato.' : 'Os objetivos e a origem dos contatos ajudam a escolher a prioridade do negócio.', impactTopics: [],
+    bridge: absentGoogleFinding ? 'A prioridade é avaliar a presença no Google e conectar a descoberta ao Instagram e ao contato.' : positiveReputation && instagramAssessed ? 'A prioridade é aproveitar a reputação positiva e o conteúdo publicado, conferindo o caminho até o contato.' : positiveReputation ? 'A prioridade é aproveitar a reputação positiva, conferindo as informações e o caminho até o contato.' : 'Os objetivos e a origem dos contatos ajudam a escolher a prioridade do negócio.', impactTopics: [],
     solutionTitle: 'O que cuidar agora. O que decidir com você.', questions: [], services: [],
     cta: {
       headline: `Qual ponto vale cuidar primeiro ${patientBusiness ? 'na' : 'em'} ${companyName}?`,
-      body: `Vamos ligar os pontos desta análise aos serviços que ${companyName} quer fortalecer agora.`,
+      body: absentGoogleFinding ? `Vamos definir o primeiro passo para a presença de ${companyName} no Google.` : `Vamos ligar os pontos desta análise aos serviços que ${companyName} quer fortalecer agora.`,
+      focus: absentGoogleFinding ? 'o Google' : 'reputação ou contato',
       button: 'Quero definir minha prioridade',
       url: `https://wa.me/5527998615616?text=${encodeURIComponent(`Olá, Gabriel. Vi o diagnóstico de ${companyName} e quero marcar a conversa de 20 minutos para definir minha prioridade.`)}`,
       durationMinutes: 20,
