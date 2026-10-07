@@ -1,12 +1,12 @@
 # Dirijo GBP: estado operacional
 
-Atualizado em 05/10/2026.
+Atualizado em 07/10/2026.
 
 ## Produção
 
 Publicado em https://gbp.viradadonutri.com.br, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local 3006. Banco, arquivos, credenciais e backups separados dos demais projetos.
 
-Release em produção: `baff700e0c4b21361966f2f445ef3c2db06b3ce7`, pacote SHA-256 `1418099154bfea21116f6806ba7a839443edc63578d7d8767e27bdf94ced7271`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `07ce088d5893f5698a395bdc812410c8c1f15e87`. Rollback binário disponível pelo executor. Limpeza automática do executor preservou releases protegidas, banco, arquivos e backups.
+Release em produção: `3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991`, pacote SHA-256 `86b4084f9567a45ebd2dd788764b6970a65d3299e07a01780414cf2e5527586d`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `baff700e0c4b21361966f2f445ef3c2db06b3ce7`. Rollback binário disponível pelo executor. Limpeza automática do executor preservou releases protegidas, banco, arquivos e backups.
 
 Health interno e externo passaram. Dirijo Ops, Dirijo Flow, Dirijo Content e Assistente Pessoal continuaram retornando 200 depois da publicação. Disco após deploy: 20% livre, 20.801.308 KiB disponíveis, 89% de inodes livres.
 
@@ -65,3 +65,12 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Coleta do Instagram passa a preceder auditoria de seu destino externo. Bio/legendas reconhecem convites para avaliação; conteúdo manual persiste e participa da leitura. Auditoria do Linktree limita a navegação ao perfil informado. Não houve nova coleta paga durante a implementação/QA.
 - Build e 75 testes passaram. QA local: caso real da Letícia (cinco páginas), três cenários confirmados, negócio sem elegibilidade Google, elegibilidade a confirmar, acesso restrito, checklist manual e presença forte. PDFs principais renderizados e conferidos; exportador rejeita corte e sobreposição do rodapé. Mobile 390 px validado.
 - Runbook e verificação do adaptador atualizados: após promoção, exportar PDF de análise finalizada já existente com sessão temporária limitada e removê-lo ao terminar. Resultado da publicação será registrado abaixo.
+
+## Diagnóstico comercial e cenários publicados, 07/10/2026
+
+- Produção ativa no SHA `3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991`, checksum `86b4084f9567a45ebd2dd788764b6970a65d3299e07a01780414cf2e5527586d`. Os três cenários e a conclusão do Instagram estão disponíveis; PDF comercial varia entre quatro e cinco páginas, com CTA gratuito de 20 minutos sem compromisso.
+- `npm run check` passou com build e 78 testes. Smoke na VPS reutilizou análise finalizada, exportou PDF de cinco páginas (322.662 bytes), sem cortes ou sobreposição e sem pendência de revisão. Sessão limitada e arquivo temporário removidos. Nenhuma coleta paga executada.
+- Dois candidatos anteriores falharam no envio único do backup, preservando o runtime anterior. Snapshot cifrado havia ultrapassado 100 MiB. Upload corrigido para multipart com partes de até 50 MiB, validação do tamanho final e abort em falha; Worker publicado na versão `c8b4b0c6-826e-4274-a9d2-84c44e32d706`. Chave, formato de recuperação e download integral preservados.
+- Backup consistente cifrado foi enviado com sucesso antes da troca da aplicação. Timer diário permanece ativo. Atualização do helper e do procedimento documentada no runbook.
+- Status confirmou `current=3fd4d97a7c5e9d192c20cdceb05bb4bd5556c991` e `previous=baff700e0c4b21361966f2f445ef3c2db06b3ce7`. Rollback binário disponível pelo executor. Health interno, público, Ops, Flow, Content e Assistente Pessoal passaram com HTTP 200.
+- Limpeza segura automática do executor aplicada, preservando releases protegidas, dados e backups. Disco final: 21% livre, 21.290.324 KiB disponíveis, 89% de inodes livres. Nenhuma ação humana pendente para ativação.
