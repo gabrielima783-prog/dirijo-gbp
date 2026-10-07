@@ -144,3 +144,15 @@ test('somente Instagram pede exatamente um achado e não preenche canais ausente
     assert.deepEqual(r.reasoning, { effort: 'low' });
   }
 });
+
+
+test('revisão por IA corrige nota técnica do rascunho antes da validação final', async () => {
+  let calls = 0;
+  const client = new OpenAIDiagnosticClient({ apiKey: 'test-key', fetch: async () => {
+    const finding = { ...modelOutput('verified').findings[0], targetLayout: 'instagram', category: 'instagram', evidenceIds: ['ig'], observation: ++calls === 1 ? 'A página recebeu 80/100 no teste.' : 'A bio apresenta o serviço e um caminho de contato.' };
+    return new Response(JSON.stringify({ output_text: JSON.stringify({ findings: [finding] }), usage: {} }));
+  } });
+  const result = await client.generate('Empresa', [{ id: 'ig', analysisId: 'one', source: 'instagram', category: 'instagram', title: 'Instagram', value: { username: 'empresa', biography: 'Serviço e contato' }, observedAt: new Date().toISOString(), confidence: 1 }]);
+  assert.equal(calls, 2); assert.equal(result.verificationApplied, true);
+  assert.doesNotMatch(JSON.stringify(result.output), /80\/100/);
+});

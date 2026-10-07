@@ -70,7 +70,7 @@ export class OpenAIDiagnosticClient {
       { type: 'input_text', text: JSON.stringify({ companyName, findingLayouts, brief }) },
       ...images.map((imageUrl) => ({ type: 'input_image', image_url: imageUrl, detail: 'low' })),
     ], findingLayouts);
-    const firstPass = reconcileFindings(generated.output.findings, findingLayouts, evidence);
+    const firstPass = reconcileFindings(generated.output.findings, findingLayouts, evidence, [], false);
 
     let verified = firstPass;
     let verificationApplied = false;
@@ -91,6 +91,9 @@ export class OpenAIDiagnosticClient {
     const sorted = verified
       .sort((a, b) => priorityWeight[a.priority] - priorityWeight[b.priority] || findingLayouts.indexOf(a.targetLayout!) - findingLayouts.indexOf(b.targetLayout!))
       .map((finding, position) => ({ ...finding, id: `ai-finding-${position + 1}`, analysisId: evidence[0]?.analysisId ?? '', position, approved: false }));
+    for (const finding of sorted) {
+      [finding.headline ?? '', finding.observation, finding.possibleImpact, finding.idealState, finding.recommendedDirection].forEach(text => { assertSafeClaim(text); assertPlainLanguage(text); });
+    }
     validateFindings(sorted, evidence);
 
     const presentationContext = makePresentationContext(companyName, evidence);
@@ -162,7 +165,7 @@ Se as evidências indicarem que a empresa não possui Perfil da Empresa no Googl
 Na análise do site, qualquer botão ou link identificado para WhatsApp, telefone, contato ou agendamento comprova que existe um caminho de contato. Nunca diga que a unidade não tem contato, telefone, WhatsApp ou agendamento quando uma dessas ações estiver nas evidências. "Não identificado pela coleta" não significa que o dado esteja ausente. Não transforme uma comparação inconclusiva em ausência.
 Quando a coleta identificar um nome, endereço ou número diferente do Perfil do Google, diga que os dados divergem e precisam ser confirmados com a unidade. Não recomende criar ou adicionar um contato que já aparece no site. Preserve os rótulos visíveis dos botões e não afirme que telefone ou endereço conferem sem confirmação explícita nas evidências.
 
-Não afirme receita perdida, crescimento garantido, posição exata no Google ou causalidade absoluta. Não exponha identidade de avaliadores.
+Não afirme receita perdida, crescimento garantido, posição exata no Google ou causalidade absoluta. Não exponha notas de desempenho em escala de 100 pontos: interprete a experiência no celular com base nos indicadores fornecidos. Não exponha identidade de avaliadores.
 
 Escreva para uma pessoa leiga. Nunca repita nomes internos de campos ou termos técnicos. Não use ownerResponseCount, ownerResponseRate, napConsistency, HTTPS, sitemap, structured data, score, reviews, business account, posts, CTA, NAP, canonical, schema, LCP, FCP, CLS, engajamento, prova social, proatividade, lead, CRM, rastreamento ou SEO. Traduza sempre o significado para uma frase natural. Prefira "interações", "pessoas interessadas", "sinais públicos de confiança", "organização dos contatos" e "acompanhamento dos resultados".`;
 
@@ -170,7 +173,7 @@ const VERIFIER_PROMPT = `Você é a checagem final de um diagnóstico comercial.
 
 Devolva exatamente um achado para cada item de findingLayouts. Preserve targetLayout e utilize somente evidenceIds disponíveis. Corrija textos genéricos, conclusões não sustentadas, exageros, repetições e termos técnicos. Mantenha detalhes personalizados comprovados. Quando o indicador estiver bom, preserve-o como ponto forte. Quando não houver confirmação suficiente, use linguagem de oportunidade ou de validação, nunca trate como erro confirmado.
 
-Não acrescente informações externas. Não afirme receita perdida, crescimento garantido, posição exata no Google ou causalidade absoluta. Não exponha identidade de avaliadores.
+Não acrescente informações externas. Não afirme receita perdida, crescimento garantido, posição exata no Google ou causalidade absoluta. Não exponha notas de desempenho em escala de 100 pontos: interprete a experiência no celular com base nos indicadores fornecidos. Não exponha identidade de avaliadores.
 Se a amostra tiver zero avaliações, nunca diga que a empresa deixou clientes sem resposta. Explique que ainda não há comentários para responder e apresente a criação da rotina como oportunidade futura.
 Na análise do site, qualquer botão ou link identificado para WhatsApp, telefone, contato ou agendamento comprova que existe um caminho de contato. Nunca diga que a unidade não tem contato, telefone, WhatsApp ou agendamento quando uma dessas ações estiver nas evidências. "Não identificado pela coleta" não significa que o dado esteja ausente. Quando nome, endereço ou telefone identificado diferir do Perfil do Google, descreva a divergência como algo a confirmar. Não recomende adicionar um botão de contato que já foi identificado.
 
@@ -193,7 +196,7 @@ function findingsSchemaFor(layouts: SlideLayout[]) { return {
   },
 }; }
 
-function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence: Evidence[], previous: Finding[] = []): Finding[] {
+function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence: Evidence[], previous: Finding[] = [], validateCopy = true): Finding[] {
   const fallback = generateFindings(evidence as AssessedEvidence[]);
   const normalize = (text: string): string => simplifyTechnicalLanguage(text
     .replace(/[\u2014\u2013\u2011]/gu, '-')
@@ -318,7 +321,7 @@ function reconcileFindings(raw: ModelFinding[], layouts: SlideLayout[], evidence
       recommendedDirection: 'Conferir as avaliações diretamente no Google e repetir a coleta antes de definir ações.',
     });
     if (noPublicReviews && !missingGoogleProfile && layout === 'responses') Object.assign(finding, responseNarrative(reviewValue));
-    [finding.headline ?? '', finding.observation, finding.possibleImpact, finding.idealState, finding.recommendedDirection].forEach((text) => {
+    if (validateCopy) [finding.headline ?? '', finding.observation, finding.possibleImpact, finding.idealState, finding.recommendedDirection].forEach((text) => {
       assertSafeClaim(text); assertPlainLanguage(text);
     });
     return finding;
