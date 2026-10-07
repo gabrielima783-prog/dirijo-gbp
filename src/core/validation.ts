@@ -56,9 +56,13 @@ export function validateFindings(findings: Finding[], evidence: Evidence[]): voi
 }
 
 export function requiredSlideLayouts(evidence: Evidence[]): SlideLayout[] {
-  const layouts: SlideLayout[] = ['cover', 'summary', 'profile', 'reputation', 'responses', 'media'];
-  if (evidence.some((item) => item.source === 'website' || item.source === 'pagespeed')) layouts.push('website');
-  if (evidence.some((item) => item.source === 'instagram')) layouts.push('instagram');
+  const active = evidence.filter(item => item.category !== 'coverage' && !(item.value && typeof item.value === 'object' && (item.value as Record<string, unknown>).present === false));
+  const layouts: SlideLayout[] = ['cover', 'summary'];
+  if (active.some(item => inferCategory(item) === 'profile')) layouts.push('profile');
+  if (active.some(item => inferCategory(item) === 'reputation')) layouts.push('reputation', 'responses');
+  if (active.some(item => inferCategory(item) === 'media')) layouts.push('media');
+  if (active.some((item) => item.source === 'website' || item.source === 'pagespeed')) layouts.push('website');
+  if (active.some((item) => item.source === 'instagram')) layouts.push('instagram');
   layouts.push('priorities', 'cta');
   return layouts;
 }
@@ -79,7 +83,7 @@ function hasNarrativeStructure(body: string): boolean {
 
 export function validatePresentation(presentation: PresentationSpec, evidence: Evidence[]): void {
   const count = presentation.slides.length;
-  if (count < 8 || count > 10) throw new Error(`A apresentação precisa ter entre 8 e 10 slides; recebeu ${count}`);
+  if (count < 4 || count > 10) throw new Error(`A apresentação precisa ter entre 4 e 10 slides; recebeu ${count}`);
   if (presentation.slides[0]?.layout !== 'cover') throw new Error('O primeiro slide precisa ser a capa');
   if (presentation.slides[count - 2]?.layout !== 'priorities' || presentation.slides[count - 1]?.layout !== 'cta') {
     throw new Error('A apresentação precisa terminar com prioridades e convite para conversa');
@@ -116,7 +120,7 @@ export function validatePresentation(presentation: PresentationSpec, evidence: E
     assertSafeSlideText([slide.title, slide.body, slide.speakerNotes]);
     assertPlainLanguage(`${slide.title} ${slide.body} ${slide.speakerNotes}`);
   }
-  if (presentation.totalDurationSeconds < 240 || presentation.totalDurationSeconds > 360) {
+  if (presentation.totalDurationSeconds < Math.min(240, count * 30) || presentation.totalDurationSeconds > 360) {
     throw new Error('O roteiro total precisa durar entre 4 e 6 minutos');
   }
 }

@@ -71,7 +71,7 @@ function context(input: AnalysisInput): DiagnosticContext {
   };
 }
 
-test('gera 9 slides e mostra a ausência de site como correção prioritária', () => {
+test('não transforma ausência de URL em problema e preserva evidências verificadas', () => {
   const result = createDiagnostic(
     context({
       mapsUrl: 'https://www.google.com/maps/place/clinica',
@@ -79,10 +79,9 @@ test('gera 9 slides e mostra a ausência de site como correção prioritária', 
     }),
   );
 
-  assert.equal(result.presentation.slides.length, 9);
-  const websiteSlide = result.presentation.slides.find((slide) => slide.layout === 'website');
-  assert.match(websiteSlide?.body ?? '', /não possui um site próprio/i);
-  assert.equal(result.findings.find((finding) => finding.evidenceIds.includes('ev-site-missing'))?.priority, 'important');
+  assert.equal(result.presentation.slides.length, 8);
+  assert.equal(result.presentation.slides.some(slide => slide.layout === 'website'), false);
+  assert.equal(result.findings.some(finding => finding.evidenceIds.includes('ev-site-missing')), false);
   assert.equal(result.presentation.slides[0]?.layout, 'cover');
   assert.match(result.presentation.slides[1]?.title ?? '', /caminho que um cliente percorre/i);
   assert.match(result.presentation.slides[1]?.body ?? '', /Verde[\s\S]*Amarelo[\s\S]*Vermelho/i);

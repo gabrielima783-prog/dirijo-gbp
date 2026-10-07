@@ -331,7 +331,7 @@ function optionalNumber(value: unknown): number | undefined {
 }
 
 function hasCallToAction(caption?: string): boolean {
-  return Boolean(caption && /(?:agend|marque|fale|chame|whats(?:app)?|link\s+na\s+bio|saiba\s+mais|envie\s+(?:uma\s+)?mensagem|direct)/iu.test(caption));
+  return Boolean(caption && /(?:agend|(?:fa[cç]a|venha\s+fazer|solicite)\s+(?:sua\s+|uma\s+)?avalia[cç][aã]o|marque|fale|chame|whats(?:app)?|link\s+na\s+bio|saiba\s+mais|envie\s+(?:uma\s+)?mensagem|direct)/iu.test(caption));
 }
 
 function hasProofSignal(caption?: string): boolean {

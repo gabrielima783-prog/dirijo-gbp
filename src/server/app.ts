@@ -6,6 +6,7 @@ import { type ServerConfig } from "./config.js";
 import { AnalysisRepository } from "./repository.js";
 import { AnalysisService, CostLimitError, NotFoundError, OperationBusyError } from "./service.js";
 import { exportAnalysisPdf } from "./pdf.js";
+import { buildCompactDiagnostic } from "../core/compact-diagnostic.js";
 import { AuthStore } from "./auth.js";
 import { LocalSettingsStore, type SettingsProvider, type SettingsUpdate } from "./settings.js";
 
@@ -120,7 +121,7 @@ export function createApp(deps: AppDependencies): Hono {
     const format=compact || c.req.query("format") === "mobile" ? "mobile" : "desktop";
     const outputDir=join(process.cwd(),"data","exports"); mkdirSync(outputDir,{recursive:true}); const path=join(outputDir,`${analysis.id}-${compact ? "compact" : format}.pdf`);
     const renderer=deps.auth?.renderer(analysis.id);
-    try { await deps.service.withHeavyOperation(() => exportAnalysisPdf({analysisId:analysis.id,outputPath:path,format,compact,baseUrl:deps.baseUrl??`http://127.0.0.1:${deps.config.port}`,expectedSlideCount:compact ? 2 : analysis.slides.length,...(renderer ? {sessionToken:renderer.token} : {})})); }
+    try { await deps.service.withHeavyOperation(() => exportAnalysisPdf({analysisId:analysis.id,outputPath:path,format,compact,baseUrl:deps.baseUrl??`http://127.0.0.1:${deps.config.port}`,expectedSlideCount:compact ? buildCompactDiagnostic(analysis).pageCount : analysis.slides.length,...(renderer ? {sessionToken:renderer.token} : {})})); }
     finally { renderer?.revoke(); }
     const bytes=readFileSync(path); c.header("content-type","application/pdf"); c.header("content-disposition",`attachment; filename=\"${pdfDownloadFilename(analysis.companyName,analysis.finalizedAt??analysis.updatedAt,format)}\"`); return c.body(bytes);
   });

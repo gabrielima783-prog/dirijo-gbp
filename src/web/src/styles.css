@@ -20,3 +20,6 @@
 .auth-card form,.auth-card label { display:grid; gap:12px; }
 .auth-card form { gap:22px; }
 .auth-card input { width:100%; padding:12px; border:1px solid #bbb; border-radius:8px; font:inherit; }
+
+.fields,.fields>.field,.form-chapter>.chapter-copy,.form-chapter>.chapter-number{min-width:0}.fields select{width:100%;max-width:100%;min-width:0}
+@media(max-width:900px){.form-chapter--dark{margin-left:-15px;margin-right:-15px}}

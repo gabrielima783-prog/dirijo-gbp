@@ -58,7 +58,7 @@ export class OpenAIDiagnosticClient {
     verificationResponseId?: string;
     verificationApplied: boolean;
   }> {
-    evidence = evidence.filter((item) => item.source !== 'competitors');
+    evidence = evidence.filter((item) => item.source !== 'competitors' && item.category !== 'coverage' && !(item.value && typeof item.value === 'object' && (item.value as Record<string, unknown>).present === false));
     if (!this.options.apiKey) throw new Error('OPENAI_API_KEY ausente.');
     const requiredLayouts = requiredSlideLayouts(evidence);
     const findingLayouts = requiredLayouts.filter((layout) => DIAGNOSTIC_LAYOUTS.includes(layout));

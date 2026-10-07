@@ -57,3 +57,11 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 
 - Produção publicada no SHA `baff700e0c4b21361966f2f445ef3c2db06b3ce7` (PR 2), checksum `1418099154bfea21116f6806ba7a839443edc63578d7d8767e27bdf94ced7271`. Build e 56 testes passaram, incluindo bloqueio da coleta/nova tentativa e exclusão das evidências legadas da síntese.
 - Backup cifrado realizado antes da promoção. Health interno, HTTPS público e vizinhos Ops, Flow, Threads e Assistente Pessoal aprovados. Status confirmou current/previous acima; 20% de disco livre, 20.338.996 KiB. Nenhuma nova chamada paga de coleta foi disparada.
+
+## Revisão comercial aprovada e validada localmente, 07/10/2026
+
+- Gabriel aprovou os três cenários e autorizou publicação em produção neste chat. Implementação preparada: PDF de quatro ou cinco páginas, até dois achados, conclusão visível do Instagram, consequências proporcionais, prioridades e CTA de 20 minutos sem custo e sem compromisso de contratação.
+- Formulário distingue URL não informada de ausência confirmada, registrando método, data e referência. Google exige ausência confirmada e elegibilidade antes de recomendar criação. Site não vira oferta automática; registros antigos sem confirmação permanecem desconhecidos.
+- Coleta do Instagram passa a preceder auditoria de seu destino externo. Bio/legendas reconhecem convites para avaliação; conteúdo manual persiste e participa da leitura. Auditoria do Linktree limita a navegação ao perfil informado. Não houve nova coleta paga durante a implementação/QA.
+- Build e 75 testes passaram. QA local: caso real da Letícia (cinco páginas), três cenários confirmados, negócio sem elegibilidade Google, elegibilidade a confirmar, acesso restrito, checklist manual e presença forte. PDFs principais renderizados e conferidos; exportador rejeita corte e sobreposição do rodapé. Mobile 390 px validado.
+- Runbook e verificação do adaptador atualizados: após promoção, exportar PDF de análise finalizada já existente com sessão temporária limitada e removê-lo ao terminar. Resultado da publicação será registrado abaixo.

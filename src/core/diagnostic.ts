@@ -113,7 +113,7 @@ function observationFor(evidence: AssessedEvidence): string {
     const signals = value.signals && typeof value.signals === 'object' ? value.signals as Record<string, unknown> : undefined;
     const recent = numberFrom(signals?.postsLast30Days);
     const contact = numberFrom(signals?.postsWithCallToAction);
-    return `Na amostra recente do Instagram, foram encontradas ${recent ?? 0} publicações nos últimos 30 dias e ${contact ?? 0} com convite claro para contato.`;
+    return `Instagram: ${recent === undefined ? 'datas recentes não verificadas' : `${recent} publicações na amostra dos últimos 30 dias`}${contact === undefined ? '' : `; o contador lexical sinalizou ${contact} legendas para revisão de chamadas para ação`}.`;
   }
   return compactText(`${evidence.title}: ${humanizeValue(evidence.value)}`, 240);
 }
@@ -153,10 +153,10 @@ function copyForEvidence(evidence: AssessedEvidence, category: EvidenceCategory)
         ? 'Quem encontra a empresa vê uma reputação forte, mas precisa procurar em outros lugares para entender especialidades, região atendida e diferenciais antes de entrar em contato.'
         : 'A combinação de reputação e informações claras reduz dúvidas na primeira comparação.',
       idealState: missingDescription
-        ? 'O perfil do Google deveria explicar em poucas linhas que a empresa atua com compra, venda e locação de imóveis em Barra Velha e indicar o caminho de contato.'
+        ? 'O perfil do Google deveria explicar em poucas linhas que a empresa atua com seus serviços e a região atendida e indicar o caminho de contato.'
         : 'A reputação e a descrição devem continuar alinhadas aos serviços e à região atendida.',
       recommendedDirection: missingDescription
-        ? 'Preencher a descrição do Perfil da Empresa no Google com atuação, tipos de imóveis, região atendida e convite para contato.'
+        ? 'Preencher a descrição do Perfil da Empresa no Google com atuação, serviços, região atendida e convite para contato.'
         : 'Manter a descrição e os dados do Perfil da Empresa no Google atualizados conforme os serviços prioritários.',
       priority: missingDescription ? 'important' : 'strength',
     };
@@ -205,9 +205,9 @@ function copyForEvidence(evidence: AssessedEvidence, category: EvidenceCategory)
     const updates = numberFrom(value.updateCount) ?? 0;
     return {
       observation: `O Perfil da Empresa no Google possui ${photos} fotos coletadas, mas não apresentou atualizações publicadas pela empresa.`,
-      possibleImpact: 'As fotos ajudam a comprovar presença, porém a ausência de atualizações reduz os sinais de atividade para quem está pesquisando imóveis e comparando opções.',
-      idealState: 'O perfil deveria combinar fotos atuais da equipe, imóveis e atendimentos com atualizações que mostrem oportunidades e movimento recente.',
-      recommendedDirection: 'Publicar atualizações no Perfil da Empresa no Google e renovar o acervo com fotos recentes da equipe, dos imóveis e da região.',
+      possibleImpact: 'As fotos ajudam a comprovar presença, porém a ausência de atualizações reduz os sinais de atividade para quem está pesquisando serviços e comparando opções.',
+      idealState: 'O perfil deveria combinar fotos atuais da equipe, serviços e ambiente com atualizações que mostrem oportunidades e movimento recente.',
+      recommendedDirection: 'Publicar atualizações no Perfil da Empresa no Google e renovar o acervo com fotos recentes da equipe, dos serviços e do ambiente.',
       priority: updates === 0 ? 'opportunity' : 'strength',
     };
   }
@@ -233,8 +233,8 @@ function copyForEvidence(evidence: AssessedEvidence, category: EvidenceCategory)
     return {
       observation: `No celular, o site alcançou ${score ?? 'boa medição'} de 100 e mostrou o conteúdo principal em ${mainContent ?? 'poucos segundos'}.`,
       possibleImpact: strong
-        ? 'Isso favorece a experiência de quem acessa pelo celular e reduz o risco de abandono antes de ver os imóveis ou iniciar o contato.'
-        : 'Uma espera maior no celular pode fazer parte dos visitantes desistir antes de ver os imóveis ou encontrar o contato.',
+        ? 'Isso favorece a experiência de quem acessa pelo celular e reduz o risco de abandono antes de conhecer os serviços ou iniciar o contato.'
+        : 'Uma espera maior no celular pode fazer parte dos visitantes desistir antes de conhecer os serviços ou encontrar o contato.',
       idealState: strong
         ? 'A velocidade atual deve ser preservada conforme novas páginas, imagens e ferramentas forem adicionadas.'
         : 'O conteúdo principal deveria aparecer rapidamente e permanecer estável durante a navegação.',
@@ -305,18 +305,25 @@ function copyForEvidence(evidence: AssessedEvidence, category: EvidenceCategory)
 
   if (category === 'instagram') {
     const signals = value.signals && typeof value.signals === 'object' ? value.signals as Record<string, unknown> : {};
-    const last30 = numberFrom(signals.postsLast30Days) ?? 0;
-    const last90 = numberFrom(signals.postsLast90Days) ?? 0;
+    const last30 = numberFrom(signals.postsLast30Days);
+    const last90 = numberFrom(signals.postsLast90Days);
     const days = numberFrom(signals.daysSinceLastPost);
-    const contact = numberFrom(signals.postsWithCallToAction) ?? 0;
+    const manual = value.manual && typeof value.manual === 'object' ? value.manual as Record<string, unknown> : value;
+    const checklist = manual.checklist && typeof manual.checklist === 'object' ? manual.checklist as Record<string, unknown> : {};
+    const bio = stringFrom(value.biography ?? checklist.bio);
+    const destination = stringFrom(value.externalUrl ?? checklist.bioLink);
+    const posts = Array.isArray(value.latestPosts) ? value.latestPosts as Array<Record<string, unknown>> : [];
+    const hasInvitation = /(?:agend|(?:fa[cç]a|venha\s+fazer|solicite)\s+(?:sua\s+|uma\s+)?avalia[cç][aã]o|marque|fale|chame|whats(?:app)?|link\s+na\s+bio|saiba\s+mais|envie\s+(?:uma\s+)?mensagem|direct)/iu.test([bio ?? '', stringFrom(checklist.callToAction) ?? '', ...posts.map(post => stringFrom(post.caption) ?? '')].join(' '));
+    const recent = last30 === undefined ? 'As datas recentes não foram verificadas nesta amostra.' : `A amostra contém ${last30} publicações nos últimos 30 dias${last90 === undefined ? '' : ` e ${last90} nos últimos 90 dias`}.`;
     return {
-      observation: `No Instagram, a amostra encontrou ${last90} publicações nos últimos 90 dias, nenhuma nos últimos 30 dias e ${contact} conteúdos com convite para contato${days !== undefined ? `. A publicação mais recente foi há ${days} dias` : ''}.`,
-      possibleImpact: 'Os conteúdos mostram imóveis e caminhos de contato, mas a pausa recente pode transmitir menor atividade justamente quando a pessoa procura sinais atuais do mercado e da empresa.',
-      idealState: 'O Instagram deveria combinar frequência recente, imóveis disponíveis, prova de atendimento e convites claros para conversar.',
-      recommendedDirection: 'Retomar uma frequência sustentável no Instagram, alternando imóveis, bastidores, orientações e provas de atendimento com convite para contato.',
-      priority: last30 === 0 ? 'important' : 'strength',
+      observation: `${bio ? 'O perfil tem uma bio preenchida; a clareza da atuação exige leitura contextual. ' : 'A bio precisa de conferência específica. '}${hasInvitation ? 'A bio ou as legendas observadas convidam para contato ou avaliação. ' : 'As orientações para contato precisam de leitura específica. '}${destination ? 'Há um destino de contato vinculado ao perfil. ' : ''}${recent}${days === undefined ? '' : ` A publicação mais recente observada tem ${days} dias.`}`,
+      possibleImpact: hasInvitation ? 'Apresentar a atuação e orientar o contato ajuda quem está conhecendo o negócio a escolher o próximo passo.' : 'Entender os serviços e o caminho de contato ajuda a pessoa a decidir se deve pedir informações.',
+      idealState: 'Bio, serviços apresentados e destino de contato devem ajudar a pessoa a conhecer o negócio e saber como pedir informações.',
+      recommendedDirection: 'Conferir a clareza dos serviços, as orientações da bio e das legendas e o destino do contato, preservando os pontos que já funcionam. Datas e contadores da amostra não comprovam resultado comercial.',
+      priority: hasInvitation && bio ? 'strength' : 'opportunity',
     };
   }
+
   return fallback;
 }
 
@@ -330,7 +337,7 @@ function stringFrom(value: unknown): string | undefined {
 
 export function generateFindings(evidence: AssessedEvidence[]): Finding[] {
   const findings = evidence
-    .filter((item) => item.confidence >= 0.45 && item.source !== 'operator' && item.source !== 'ai')
+    .filter((item) => item.confidence >= 0.45 && item.source !== 'operator' && item.source !== 'ai' && (item.category as string | undefined) !== 'coverage' && !(item.value && typeof item.value === 'object' && (item.value as Record<string, unknown>).present === false))
     .map((item): Finding => {
       const category = inferCategory(item);
       const content = copyForEvidence(item, category);
@@ -380,6 +387,7 @@ function compareFindings(a: Finding, b: Finding): number {
 }
 
 export function createDiagnostic(context: DiagnosticContext): DiagnosticResult {
+  context = { ...context, evidence: context.evidence.filter(item => (item.category as string | undefined) !== "coverage" && !(item.value && typeof item.value === "object" && (item.value as Record<string, unknown>).present === false)) };
   validateDiagnosticContext(context);
   const findings = generateFindings(context.evidence);
   validateFindings(findings, context.evidence);

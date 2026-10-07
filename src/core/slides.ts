@@ -1,7 +1,7 @@
 import { compactText, humanizeValue, inferCategory } from './content.js';
 import type { AssessedEvidence, DiagnosticContext, Finding, PresentationSpec, SlideLayout, SlideSpec } from './types.js';
 import { responseNarrative } from './review-responses.js';
-import { validatePresentation } from './validation.js';
+import { requiredSlideLayouts, validatePresentation } from './validation.js';
 
 const BRAND = {
   name: 'Dirijo' as const,
@@ -219,13 +219,19 @@ export function buildPresentation(context: DiagnosticContext, findings: Finding[
   const slides: SlideSpec[] = [
     { id: 'slide-cover', analysisId: context.analysisId, layout: 'cover', title: `O que um ${terms.person} encontra antes de escolher ${name}.`, body: `Uma análise da presença no Google, da reputação e dos caminhos até ${terms.action}.`, evidenceIds: [], visualAssetIds: context.input.companyLogo ? ['company-logo'] : [], speakerNotes: `Preparei esta análise para mostrar como ${name} aparece hoje para quem pesquisa, compara e decide ${terms.action}. O objetivo é localizar pontos que podem interromper esse caminho e entender como deveria ser a experiência correta.`, durationSeconds: 30, approved: true, position: 0 },
     summarySlide(context, findings, 1),
-    makeSlide(context, 2, 'profile', 'Google Maps: a reputação é forte, mas o perfil deixa uma lacuna.', findings, 'Depois do perfil, a reputação mostra quais provas já ajudam a empresa.'),
-    makeSlide(context, 3, 'reputation', 'Avaliações no Google: confiança forte e recente.', findings, 'Agora vamos olhar a oportunidade que existe nas respostas públicas.'),
-    makeSlide(context, 4, 'responses', responseTitle(context), findings, 'Em seguida, vamos olhar fotos e sinais de atividade no Google.'),
-    makeSlide(context, 5, 'media', 'Fotos no Google: há acervo, mas falta atividade publicada pela empresa.', findings, 'Com o Google analisado, seguimos para os canais próprios da empresa.'),
   ];
-  if (context.evidence.some((item) => item.source === 'website' || item.source === 'pagespeed')) slides.push(makeSlide(context, slides.length, 'website', 'Site: desempenho excelente e caminho de contato funcionando.', findings, 'O próximo canal mostra se a presença permanece ativa depois da visita ao site.'));
-  if (context.evidence.some((item) => item.source === 'instagram')) slides.push(makeSlide(context, slides.length, 'instagram', 'Instagram: o contato está claro, mas a frequência caiu.', findings, 'Com todos os canais revisados, fechamos com as prioridades mais objetivas.'));
+  const channelSlides: Array<[SlideLayout, string]> = [
+    ['profile', 'Google: informações para reconhecer o negócio e entrar em contato.'],
+    ['reputation', 'Avaliações no Google: o que a amostra mostra sobre confiança.'],
+    ['responses', responseTitle(context)],
+    ['media', 'Google: fotos e atividade observadas no perfil.'],
+    ['website', 'Destino de contato: o caminho a partir do interesse.'],
+    ['instagram', 'Instagram: apresentação, conteúdo e caminho de contato.'],
+  ];
+  const layouts = requiredSlideLayouts(context.evidence);
+  for (const [layout, title] of channelSlides) {
+    if (layouts.includes(layout)) slides.push(makeSlide(context, slides.length, layout, title, findings, 'Com esta evidência, podemos decidir o próximo ajuste com mais critério.'));
+  }
   slides.push(prioritiesSlide(context, findings, slides.length));
   slides.push(ctaSlide(context, slides.length));
   const timedSlides = assignPositionsAndDurations(slides);

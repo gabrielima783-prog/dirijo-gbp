@@ -15,7 +15,17 @@ export interface InstagramChecklist {
   opportunities?: string | undefined;
 }
 
+export type ChannelName = "google" | "instagram" | "website";
+export type ChannelPresenceState = "present_assessed" | "present_unassessed" | "absent_confirmed" | "not_provided" | "not_found" | "collection_failed" | "restricted";
+export interface ChannelPresence {
+  state: ChannelPresenceState;
+  confirmation?: { method: string; observedAt: string; reference: string } | undefined;
+}
+export type GoogleEligibility = "eligible" | "ineligible" | "unknown";
+
 export interface AnalysisInput {
+  channelPresence?: Partial<Record<ChannelName, ChannelPresence>> | undefined;
+  googleEligibility?: GoogleEligibility | undefined;
   mapsUrl?: string | undefined;
   companyName?: string | undefined;
   websiteUrl?: string | undefined;
@@ -33,6 +43,7 @@ export interface SourceStatus {
 }
 
 export interface Evidence {
+  channelPresence?: ChannelPresence | undefined;
   id: string;
   analysisId: string;
   source: SourceName;

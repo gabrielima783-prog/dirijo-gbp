@@ -93,7 +93,7 @@ O limite padrão é US$ 1 por análise. Acima dele, a continuação exige confir
 
 São aceitos links completos do Google Maps, links curtos `maps.app.goo.gl` e links de compartilhamento `share.google`. A conversão de `share.google` é local, sem consulta paga adicional. Se o Google bloquear essa abertura, abra a ficha diretamente no Google Maps e use Compartilhar > Copiar link, ou copie a URL completa da ficha na barra do navegador. Esse formato evita a etapa de conversão do link compartilhado.
 
-A apresentação usa de 8 a 10 páginas: base do Google, páginas opcionais de site e Instagram, prioridades específicas e um convite final para conversa com a Dirijo. Vermelho identifica correção confirmada, amarelo indica atenção ou oportunidade e verde destaca ponto forte.
+O PDF comercial usa quatro ou cinco páginas, adaptadas aos canais avaliados: evidências, consequências possíveis, prioridades e conversa de 20 minutos sem custo e sem compromisso. A apresentação detalhada permanece disponível, entre quatro e dez páginas conforme os canais observados. Vermelho identifica correção confirmada, amarelo indica atenção ou oportunidade e verde destaca ponto forte.
 
 ## Validação
 
@@ -135,3 +135,7 @@ O produto analisa somente a empresa informada, sem busca de concorrentes. Não a
 - `GET /api/settings`
 - `PUT /api/settings`
 - `POST /api/settings/test/:provider`
+
+## Diagnósticos comerciais: revisão aprovada em 07/10/2026
+
+Referência editorial: `docs/diagnosticos/LOGICA-DIAGNOSTICOS-V2.md`. Os três cenários consideram Google e Instagram sem site próprio, somente Google e somente Instagram. URLs não informadas permanecem desconhecidas; o formulário permite registrar ausências verificadas e a elegibilidade do Google. Todo Instagram avaliado tem conclusão visível. Ausência de site não gera contratação automática. Abertura e exportação usam as evidências já armazenadas, sem nova coleta paga.

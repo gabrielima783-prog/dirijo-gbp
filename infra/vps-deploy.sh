@@ -37,6 +37,7 @@ case "$operation" in
     test -n "$app_id" && test -n "$tunnel_id"
     test "$(docker inspect -f '{{ index .Config.Labels "com.gabriel.vps-release" }}' "$app_id")" = "$VPS_OPS_RELEASE_ID"
     sudo systemctl is-active --quiet dirijo-gbp-backup.timer
+    if [ "$operation" = verify ]; then "${compose[@]}" exec -T app node infra/verify-diagnostic.mjs; fi
     if [ "$operation" = status ]; then "${compose[@]}" ps; fi
     ;;
   *) echo 'unsupported adapter operation' >&2; exit 64;;

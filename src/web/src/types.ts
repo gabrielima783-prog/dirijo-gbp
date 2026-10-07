@@ -15,7 +15,15 @@ export interface InstagramChecklist {
   opportunities?: string;
 }
 
+export type ChannelPresenceState = 'present_assessed' | 'present_unassessed' | 'absent_confirmed' | 'not_provided' | 'not_found' | 'collection_failed' | 'restricted';
+export interface ChannelPresence {
+  state: ChannelPresenceState;
+  confirmation?: { method: string; observedAt: string; reference: string };
+}
+
 export interface AnalysisInput {
+  channelPresence?: Partial<Record<'google' | 'instagram' | 'website', ChannelPresence>>;
+  googleEligibility?: 'eligible' | 'ineligible' | 'unknown';
   mapsUrl?: string;
   companyName?: string;
   websiteUrl?: string;

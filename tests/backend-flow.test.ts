@@ -96,10 +96,11 @@ test("coleta Maps completa preserva evidências, custo e rascunho local quando a
   assert.equal(result.sourceStatuses.competitors.status, "skipped");
   assert.equal(result.sourceStatuses.website.status, "skipped");
   assert.equal(result.sourceStatuses.ai.status, "failed");
-  assert.equal(result.slides.length, 9);
+  assert.equal(result.slides.length, 8);
   const missingSite = result.evidence.find((item) => item.source === "website");
-  assert.equal((missingSite?.value as { present?: boolean }).present, false);
-  assert.equal(result.findings.find((item) => item.evidenceIds.includes(missingSite?.id ?? ""))?.priority, "important");
+  assert.equal(missingSite?.category, "coverage");
+  assert.equal((missingSite?.value as { presence: { state: string } }).presence.state, "not_provided");
+  assert.equal(result.findings.some((item) => item.evidenceIds.includes(missingSite?.id ?? "")), false);
   assert.ok(result.findings.length >= 3);
   assert.ok(result.slides.every((slide) => slide.approved));
   assert.ok(result.findings.every((finding) => finding.approved));
@@ -130,7 +131,7 @@ test("coleta o Instagram automaticamente a partir do link público", async () =>
   const instagram = result.evidence.find((item) => item.source === "instagram")?.value as { username?: string; signals?: { postsWithCallToAction?: number } };
   assert.equal(instagram.username, "clinica");
   assert.equal(instagram.signals?.postsWithCallToAction, 1);
-  assert.equal(result.slides.length, 10);
+  assert.equal(result.slides.length, 9);
   assert.ok(result.slides.some((slide) => slide.layout === "instagram"));
 });
 
@@ -141,16 +142,15 @@ test("gera diagnóstico completo quando a empresa possui somente Instagram", asy
 
   assert.equal(result.status, "finalized");
   assert.equal(result.companyName, "Clínica Horizonte");
-  assert.equal(result.sourceStatuses.maps.status, "completed");
+  assert.equal(result.sourceStatuses.maps.status, "skipped");
   assert.equal(result.sourceStatuses.reviews.status, "skipped");
   assert.equal(result.sourceStatuses.competitors.status, "skipped");
   assert.equal(result.sourceStatuses.instagram.status, "completed");
   assert.equal(result.estimatedCostUsd, 0.09);
-  assert.equal(result.slides.length, 10);
-  assert.ok(result.evidence.some((item) => item.source === "maps" && (item.value as { present?: boolean }).present === false));
-  assert.match(result.slides.find((slide) => slide.layout === "profile")?.body ?? "", /não possui um Perfil da Empresa no Google/i);
-  assert.match(result.slides.find((slide) => slide.layout === "reputation")?.body ?? "", /não reúne avaliações públicas/i);
-  assert.match(result.slides.find((slide) => slide.layout === "media")?.body ?? "", /não encontra fotos/i);
+  assert.equal(result.slides.length, 5);
+  assert.equal(result.findings.some(item => item.category === "profile" || item.category === "reputation"), false);
+  assert.equal(result.slides.some(slide => slide.layout === "profile"), false);
+  assert.equal(result.evidence.find(item => item.source === "maps")?.category, "coverage");
 });
 
 test("material nasce aprovado e continua editável depois da finalização automática", async () => {
@@ -165,7 +165,7 @@ test("material nasce aprovado e continua editável depois da finalização autom
   assert.ok(service.get(created.id).findings.every((item) => item.approved));
   assert.match(service.get(created.id).findings[0]?.observation ?? "", /Correção opcional/);
   assert.deepEqual(new Set(repository.versions(created.id).map((version) => version.kind)), new Set(["created", "findings", "slides", "finalized"]));
-  assert.throws(() => repository.replaceSlides(created.id, collected.slides.slice(0, 7)), /8 e 10 slides/);
+  assert.throws(() => repository.replaceSlides(created.id, collected.slides.slice(0, 3)), /4 e 10 slides/);
 });
 
 test("exclui uma análise e todos os seus dados relacionados", () => {

@@ -150,7 +150,7 @@ export class AnalysisRepository {
       const statement = this.db.prepare(`INSERT INTO evidence
         (id,analysis_id,source,title,value_json,source_url,observed_at,screenshot_path,confidence,category,assessment,impact,recommendation)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-      for (const item of items) statement.run(randomUUID(), id, source, item.title, json(item.value), item.sourceUrl ?? null,
+      for (const item of items) statement.run(randomUUID(), id, source, item.title, json(item.channelPresence && item.value && typeof item.value === "object" && !Array.isArray(item.value) ? { ...item.value as Record<string, unknown>, presence: item.channelPresence } : item.value), item.sourceUrl ?? null,
         item.observedAt, item.screenshotPath ?? null, item.confidence, item.category ?? null, item.assessment ?? null,
         item.impact ?? null, item.recommendation ?? null);
     });
@@ -179,9 +179,9 @@ export class AnalysisRepository {
   }
 
   replaceSlides(id: string, items: Array<Omit<SlideSpec, "id" | "analysisId"> & { id?: string }>): SlideSpec[] {
-    if (items.length < 8 || items.length > 10) throw new Error("A apresentação precisa manter entre 8 e 10 slides.");
+    if (items.length < 4 || items.length > 10) throw new Error("A apresentação precisa manter entre 4 e 10 slides.");
     const totalDuration = items.reduce((sum, item) => sum + item.durationSeconds, 0);
-    if (totalDuration < 240 || totalDuration > 360) throw new Error("O roteiro precisa durar entre 4 e 6 minutos.");
+    if (totalDuration < Math.min(240, items.length * 30) || totalDuration > 360) throw new Error("O roteiro precisa durar entre 4 e 6 minutos.");
     const validEvidence = new Set(this.evidence(id).map((item) => item.id));
     for (const item of items) if (item.evidenceIds.some((evidenceId) => !validEvidence.has(evidenceId))) throw new Error("O slide aponta para uma evidência inexistente.");
     const tx = () => this.transaction(() => {
@@ -220,7 +220,7 @@ export class AnalysisRepository {
     return item;
   }
 
-  private evidence(id: string): Evidence[] { return (this.db.prepare("SELECT * FROM evidence WHERE analysis_id=? ORDER BY observed_at,id").all(id) as Record<string, unknown>[]).map((r) => ({ id:String(r.id),analysisId:id,source:String(r.source) as SourceName,title:String(r.title),value:parse(r.value_json,null),sourceUrl:r.source_url?String(r.source_url):undefined,observedAt:String(r.observed_at),screenshotPath:r.screenshot_path?String(r.screenshot_path):undefined,confidence:Number(r.confidence),category:r.category?String(r.category):undefined,assessment:r.assessment?String(r.assessment):undefined,impact:r.impact?String(r.impact):undefined,recommendation:r.recommendation?String(r.recommendation):undefined })); }
+  private evidence(id: string): Evidence[] { return (this.db.prepare("SELECT * FROM evidence WHERE analysis_id=? ORDER BY observed_at,id").all(id) as Record<string, unknown>[]).map((r) => ({ id:String(r.id),analysisId:id,source:String(r.source) as SourceName,title:String(r.title),value:parse(r.value_json,null),channelPresence:(parse(r.value_json,null) as { presence?: Evidence["channelPresence"] } | null)?.presence,sourceUrl:r.source_url?String(r.source_url):undefined,observedAt:String(r.observed_at),screenshotPath:r.screenshot_path?String(r.screenshot_path):undefined,confidence:Number(r.confidence),category:r.category?String(r.category):undefined,assessment:r.assessment?String(r.assessment):undefined,impact:r.impact?String(r.impact):undefined,recommendation:r.recommendation?String(r.recommendation):undefined })); }
   private findings(id: string): Finding[] { return (this.db.prepare("SELECT * FROM findings WHERE analysis_id=? ORDER BY position").all(id) as Record<string, unknown>[]).map((r) => ({ id:String(r.id),analysisId:id,evidenceIds:parse<string[]>(r.evidence_ids_json,[]),category:String(r.category),priority:String(r.priority) as Finding["priority"],observation:String(r.observation),possibleImpact:String(r.possible_impact),idealState:String(r.ideal_state ?? ""),recommendedDirection:String(r.recommended_direction),approved:Boolean(r.approved),position:Number(r.position) })); }
   private slides(id: string): SlideSpec[] { return (this.db.prepare("SELECT * FROM slides WHERE analysis_id=? ORDER BY position").all(id) as Record<string, unknown>[]).map((r) => ({ id:String(r.id),analysisId:id,layout:String(r.layout) as SlideSpec["layout"],title:String(r.title),body:String(r.body),evidenceIds:parse<string[]>(r.evidence_ids_json,[]),visualAssetIds:parse<string[]>(r.visual_asset_ids_json,[]),speakerNotes:String(r.speaker_notes),durationSeconds:Number(r.duration_seconds),approved:Boolean(r.approved),position:Number(r.position) })); }
   private costs(id: string): CostEntry[] { return (this.db.prepare("SELECT * FROM costs WHERE analysis_id=? ORDER BY created_at").all(id) as Record<string, unknown>[]).map((r) => ({ id:String(r.id),analysisId:id,source:String(r.source) as SourceName,amountUsd:Number(r.amount_usd),units:r.units==null?undefined:Number(r.units),metadata:parse<Record<string,unknown>|undefined>(r.metadata_json,undefined),createdAt:String(r.created_at) })); }

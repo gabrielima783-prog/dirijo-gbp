@@ -1,9 +1,10 @@
-import type { Analysis, AnalysisSummary, AnalysisInput, CostEstimate, Evidence, PlaceSnapshot, SourceName } from "../shared/types.js";
+import type { Analysis, AnalysisSummary, AnalysisInput, CostEstimate, Evidence, PlaceSnapshot, SourceName, ChannelName, ChannelPresence } from "../shared/types.js";
 import { AnalysisRepository } from "./repository.js";
 import { ApifyClient, instagramUsername, normalizeInstagramProfile, normalizePlace } from "./adapters/apify.js";
 import { OpenAIDiagnosticClient } from "./adapters/openai.js";
 import { PageSpeedClient, WebsiteAuditor, type WebsiteContactAction, type WebsitePage } from "./adapters/website.js";
 import { createDiagnostic } from "../core/diagnostic.js";
+import { inputChannelPresence } from "../core/channel-presence.js";
 import type { AssessedEvidence } from "../core/types.js";
 
 export interface AnalysisServiceDependencies {
@@ -114,6 +115,7 @@ export class AnalysisService {
       if (source !== "ai" && this.deps.openai) await this.runSource(id, "ai", analysis.input);
     } catch (error) {
       if (source === "ai" && this.require(id).evidence.length) this.generateLocalDraft(id, analysis.input);
+      this.recordFailedCoverage(id, source, analysis.input, error);
       this.deps.repository.setSource(id, source, "failed", errorMessage(error));
     }
     this.makeReady(id, "review");
@@ -142,7 +144,8 @@ export class AnalysisService {
     this.deps.repository.setSource(id, "competitors", "skipped");
     const phases: SourceName[][] = [
       ["maps"],
-      ["reviews", "website", "pagespeed", "instagram", "operator"],
+      ["reviews", "instagram", "operator"],
+      ["website", "pagespeed"],
       ["ai"],
     ];
     let successes = 0;
@@ -156,6 +159,7 @@ export class AnalysisService {
       try { await this.runSource(id, source, analysis.input); successes += 1; }
       catch (error) {
         if (source === "ai" && this.require(id).evidence.length) this.generateLocalDraft(id, analysis.input);
+        this.recordFailedCoverage(id, source, analysis.input, error);
         this.deps.repository.setSource(id, source, "failed", errorMessage(error));
       }
     };
@@ -172,8 +176,8 @@ export class AnalysisService {
     if (source === "maps") {
       if (!input.mapsUrl?.trim()) {
         this.deps.repository.setCompanyName(id, input.companyName!.trim());
-        this.deps.repository.replaceEvidence(id, "maps", missingGoogleProfileEvidence(observedAt));
-        this.deps.repository.setSource(id, "maps", "completed", "Ausência do Perfil da Empresa no Google registrada como oportunidade.");
+        this.deps.repository.replaceEvidence(id, "maps", [channelCoverageEvidence(input, "google", observedAt)]);
+        this.deps.repository.setSource(id, "maps", "skipped", "Perfil do Google não informado; consulte a cobertura registrada.");
         return;
       }
       if (!this.deps.apify) throw new Error("Apify não configurada.");
@@ -183,7 +187,7 @@ export class AnalysisService {
       this.deps.repository.setCompanyName(id, input.companyName?.trim() || place.title);
       const { reviews, ...profile } = place;
       this.deps.repository.replaceEvidence(id, "maps", [
-        { ...evidence("maps", "Perfil público no Google", { ...profile, recentReviews: reviews }, place.sourceUrl, observedAt, 0.98), category: "profile" },
+        { ...evidence("maps", "Perfil público no Google", { ...profile, recentReviews: reviews, presence: { state: "present_assessed" } }, place.sourceUrl, observedAt, 0.98), category: "profile", channelPresence: { state: "present_assessed" } },
         { ...evidence("maps", "Fotos, vídeos e sinais de atividade", { photoCount: place.imageUrls.length, updateCount: place.ownerUpdates?.length ?? 0, questionCount: place.questionsAndAnswers?.length ?? 0, imageDataUrls }, place.sourceUrl, observedAt, 0.92), category: "media" },
       ]);
       this.deps.repository.addCost(id, "maps", result.costUsd, 1, { runId: result.runId, datasetId: result.datasetId });
@@ -204,12 +208,8 @@ export class AnalysisService {
     if (source === "website") {
       const websiteUrl = this.websiteUrlFor(id, input);
       if (!websiteUrl) {
-        this.deps.repository.replaceEvidence(id, "website", [{
-          ...evidence("website", "Ausência de site próprio", { present: false, reason: input.mapsUrl ? "Nenhum site foi informado nem encontrado no Perfil da Empresa no Google." : "Nenhum site próprio foi informado." }, undefined, observedAt, 0.98),
-          category: "website", assessment: "negative", impact: "high",
-          recommendation: "Criar uma página própria que apresente os serviços, reforce a confiança e conduza até o WhatsApp ou agendamento.",
-        }]);
-        this.deps.repository.setSource(id, "website", "skipped", "Nenhum site público foi informado ou encontrado.");
+        this.deps.repository.replaceEvidence(id, "website", [channelCoverageEvidence(input, "website", observedAt)]);
+        this.deps.repository.setSource(id, "website", "skipped", "Destino público não informado nem identificado; ausência de site depende de confirmação.");
         return;
       }
       if (!this.deps.website) throw new Error("Auditor de site não configurado.");
@@ -217,7 +217,7 @@ export class AnalysisService {
       const pages = audit.pages.map(({ visibleText: _visibleText, ...page }) => page);
       const place = this.mapsProfile(id);
       const napConsistency = place ? compareWebsiteToProfile(audit.pages, place) : undefined;
-      this.deps.repository.replaceEvidence(id, "website", [evidence("website", "Auditoria do site", { ...audit, pages, ...(napConsistency ? { napConsistency } : {}) }, websiteUrl, observedAt, 0.95)]);
+      this.deps.repository.replaceEvidence(id, "website", [{ ...evidence("website", "Auditoria do destino público", { ...audit, pages, presence: { state: "present_assessed" }, ...(napConsistency ? { napConsistency } : {}) }, websiteUrl, observedAt, 0.95), channelPresence: { state: "present_assessed" } }]);
       this.deps.repository.setSource(id, "website", "completed"); return;
     }
     if (source === "pagespeed") {
@@ -238,14 +238,19 @@ export class AnalysisService {
         if (!this.require(id).companyName && profile.fullName?.trim()) this.deps.repository.setCompanyName(id, profile.fullName.trim());
         const imageDataUrls = await downloadImages(profile.latestPosts.map((post) => post.imageUrl).filter((url): url is string => Boolean(url)).slice(0, 6));
         this.deps.repository.replaceEvidence(id, "instagram", [
-          { ...evidence("instagram", "Como o Instagram conduz até o contato", { ...profile, imageDataUrls, manual }, input.instagramUrl, observedAt, 0.95), category: "instagram" },
+          { ...evidence("instagram", "Como o Instagram conduz até o contato", { ...profile, imageDataUrls, manual, presence: { state: "present_assessed" } }, input.instagramUrl, observedAt, 0.95), category: "instagram", channelPresence: { state: "present_assessed" } },
         ]);
         this.deps.repository.addCost(id, "instagram", result.costUsd, 1, { runId: result.runId, datasetId: result.datasetId });
         this.deps.repository.setSource(id, "instagram", "completed", undefined, { runId: result.runId, username }, result.runId);
         return;
       }
+      if (!input.instagramScreenshots?.length && !Object.values(input.instagramChecklist ?? {}).some(value => value?.trim())) {
+        this.deps.repository.replaceEvidence(id, "instagram", [channelCoverageEvidence(input, "instagram", observedAt)]);
+        this.deps.repository.setSource(id, "instagram", "skipped", "Instagram não informado; consulte a cobertura registrada.");
+        return;
+      }
       this.deps.repository.replaceEvidence(id, "instagram", [
-        { ...evidence("instagram", "Observação manual do Instagram", manual, undefined, observedAt, 1), category: "instagram" },
+        { ...evidence("instagram", "Observação manual do Instagram", { ...manual, presence: { state: "present_assessed" } }, undefined, observedAt, 1), category: "instagram", channelPresence: { state: "present_assessed" } },
       ]);
       this.deps.repository.setSource(id, "instagram", "completed"); return;
     }
@@ -273,6 +278,13 @@ export class AnalysisService {
     }
   }
 
+  private recordFailedCoverage(id: string, source: SourceName, input: AnalysisInput, error: unknown): void {
+    const channel: ChannelName | undefined = source === "maps" ? "google" : source === "website" || source === "instagram" ? source : undefined;
+    if (!channel) return;
+    const state = source === "instagram" && /privado|restring/i.test(errorMessage(error)) ? "restricted" : "collection_failed";
+    this.deps.repository.replaceEvidence(id, source, [channelCoverageEvidence(input, channel, new Date().toISOString(), { state })]);
+  }
+
   private profile(id: string): PlaceSnapshot {
     const profile = this.mapsProfile(id);
     if (!profile) throw new Error("Perfil principal ainda não coletado.");
@@ -290,17 +302,23 @@ export class AnalysisService {
     if (source === "reviews") return Boolean(input.mapsUrl?.trim());
     if (source === "website") return true;
     if (source === "pagespeed") return Boolean(this.deps.pageSpeed && this.websiteUrlFor(id, input));
-    if (source === "instagram") return Boolean(input.instagramUrl || input.instagramChecklist || input.instagramScreenshots?.length);
+    if (source === "instagram") return true;
     if (source === "operator") return Boolean(input.contactName || input.companyName);
     return true;
   }
   private websiteUrlFor(id: string, input: AnalysisInput): string | undefined {
     const informed = input.websiteUrl?.trim();
     if (informed) return informed;
-    try { return this.profile(id).website?.trim(); } catch { return undefined; }
+    try {
+      const fromGoogle = this.profile(id).website?.trim();
+      if (fromGoogle) return fromGoogle;
+    } catch { /* Google pode não estar disponível. */ }
+    const instagram = this.require(id).evidence.find(item => item.source === "instagram" && item.category === "instagram")?.value as { externalUrl?: string } | undefined;
+    return instagram?.externalUrl?.trim() || undefined;
   }
   private generateLocalDraft(id: string, input: AnalysisInput): void {
     const current = this.require(id);
+    if (!current.evidence.some(item => item.category !== "coverage" && item.source !== "operator" && item.source !== "ai")) return;
     const result = createDiagnostic({
       analysisId: id,
       input,
@@ -334,7 +352,7 @@ export class CostLimitError extends Error { constructor(readonly estimatedUsd: n
 function validateInput(input: AnalysisInput): void {
   const mapsUrl = input.mapsUrl?.trim();
   const hasAlternativeSource = Boolean(input.websiteUrl?.trim() || input.instagramUrl?.trim() || input.instagramScreenshots?.length || Object.values(input.instagramChecklist ?? {}).some((value) => value?.trim()));
-  if (!mapsUrl && !input.companyName?.trim()) throw new Error("Informe o nome da empresa quando ela não possui Perfil da Empresa no Google.");
+  if (!mapsUrl && !input.companyName?.trim()) throw new Error("Informe o nome da empresa quando o link do Perfil da Empresa no Google não foi informado.");
   if (!mapsUrl && !hasAlternativeSource) throw new Error("Informe ao menos o Instagram, o site ou observações públicas para analisar a empresa sem Google Maps.");
   if (mapsUrl) {
     let url: URL;
@@ -346,14 +364,17 @@ function validateInput(input: AnalysisInput): void {
   if (input.instagramUrl) instagramUsername(input.instagramUrl);
   if ((input.instagramScreenshots?.length ?? 0) > 4) throw new Error("Use no máximo quatro capturas do Instagram.");
 }
-function missingGoogleProfileEvidence(observedAt: string): Array<Omit<Evidence, "id" | "analysisId">> {
-  const base = { present: false, reason: "Nenhum Perfil da Empresa no Google foi informado para esta empresa." };
-  return [
-    { ...evidence("maps", "Ausência do Perfil da Empresa no Google", { ...base, targetLayout: "profile", headline: "Google: a empresa ainda não possui sua principal vitrine nas buscas locais." }, undefined, observedAt, 1), category: "profile", assessment: "negative", impact: "high", recommendation: "Criar e validar o Perfil da Empresa no Google com categoria, serviços, localização, contato e horários corretos." },
-    { ...evidence("maps", "Ausência de avaliações públicas no Google", { ...base, sampleSize: 0, targetLayout: "reputation", headline: "Avaliações no Google: hoje não existe uma reputação pública para apoiar a decisão." }, undefined, observedAt, 1), category: "reputation", assessment: "negative", impact: "high", recommendation: "Após a validação do perfil, criar uma rotina legítima para solicitar avaliações de clientes atendidos." },
-    { ...evidence("maps", "Ausência de respostas públicas no Google", { ...base, sampleSize: 0, targetLayout: "responses", headline: "Respostas no Google: a rotina pode nascer junto com as primeiras avaliações." }, undefined, observedAt, 1), category: "reputation", assessment: "neutral", impact: "medium", recommendation: "Definir desde o início quem acompanhará e responderá as avaliações recebidas." },
-    { ...evidence("maps", "Ausência de fotos e atualizações no Google", { ...base, photoCount: 0, updateCount: 0, targetLayout: "media", headline: "Fotos no Google: quem pesquisa ainda não encontra sinais visuais da empresa." }, undefined, observedAt, 1), category: "media", assessment: "negative", impact: "high", recommendation: "Publicar fotos reais, serviços, estrutura e atualizações assim que o perfil estiver validado." },
-  ];
+function channelCoverageEvidence(input: AnalysisInput, channel: ChannelName, observedAt: string, override?: ChannelPresence): Omit<Evidence, "id" | "analysisId"> {
+  const presence = override ?? inputChannelPresence(input, channel);
+  const source = channel === "google" ? "maps" : channel;
+  const label = channel === "google" ? "Google" : channel === "website" ? "site próprio" : "Instagram";
+  return {
+    ...evidence(source, `Cobertura: ${label}`, {
+      channel, presence, googleEligibility: input.googleEligibility ?? "unknown",
+      reason: presence.state === "absent_confirmed" ? `Ausência de ${label} confirmada pelo responsável ou procedimento registrado.` : `${label} não avaliado; esse estado não comprova inexistência.`,
+    }, undefined, observedAt, 1),
+    category: "coverage", channelPresence: presence,
+  };
 }
 function errorMessage(error:unknown):string{return error instanceof Error?error.message:"Falha inesperada.";}
 function evidence(source:SourceName,title:string,value:unknown,sourceUrl:string|undefined,observedAt:string,confidence:number):Omit<Evidence,"id"|"analysisId">{return{source,title,value,sourceUrl,observedAt,confidence};}

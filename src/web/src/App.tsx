@@ -7,6 +7,7 @@ const SessionContext = createContext<AuthUser | null>(null);
 import type { Analysis, AnalysisSummary, AnalysisInput, Evidence, Finding, FindingPriority, InstagramChecklist, PublicSettings, SettingsProvider, SettingsUpdate, SlideSpec, SourceKey } from './types';
 import { sourceLabels } from './types';
 import { CompactDiagnostic } from './CompactDiagnostic';
+import { buildCompactDiagnostic } from '../../core/compact-diagnostic.js';
 import { toneForSlide, type SlideTone } from '../../core/tone.js';
 
 const priorities: FindingPriority[] = ['critical', 'important', 'opportunity', 'strength'];
@@ -212,6 +213,17 @@ function NewAnalysis({ go }: { go: (p: string) => void }) {
   const [error, setError] = useState('');
   const set = (key: keyof AnalysisInput, value: unknown) => setInput(current => ({ ...current, [key]: value }));
   const setChecklist = (key: keyof InstagramChecklist, value: string) => setInput(current => ({ ...current, instagramChecklist: { ...current.instagramChecklist, [key]: value } }));
+  const confirmAbsence = (channel: 'google' | 'instagram' | 'website', confirmed: boolean) => setInput(current => ({
+    ...current,
+    channelPresence: { ...current.channelPresence, [channel]: confirmed
+      ? { state: 'absent_confirmed', confirmation: { method: 'operator_verification', observedAt: new Date().toISOString(), reference: '' } }
+      : { state: 'not_provided' } },
+  }));
+  const absenceReference = (channel: 'google' | 'instagram' | 'website', reference: string) => setInput(current => ({
+    ...current, channelPresence: { ...current.channelPresence, [channel]: { state: 'absent_confirmed', confirmation: {
+      method: 'operator_verification', observedAt: new Date().toISOString(), reference,
+    } } },
+  }));
   const uploadLogo = async (files: FileList | null) => { if (files?.[0]) set('companyLogo', await fileToDataUrl(files[0])); };
   const uploadPrints = async (files: FileList | null) => { if (files) set('instagramScreenshots', await Promise.all(Array.from(files).slice(0, 4).map(fileToDataUrl))); };
   const submit = async (event: Event) => {
@@ -223,17 +235,22 @@ function NewAnalysis({ go }: { go: (p: string) => void }) {
   return <Shell go={go} active="new">
     <section class="page-intro page-intro--form">
       <div><p class="eyebrow">Novo dossiê</p><h1>Comece pela <em>presença.</em></h1></div>
-      <p class="intro-copy">Use os canais que a empresa possui. Quando o perfil do Google não existe, essa ausência vira parte do diagnóstico.</p>
+      <p class="intro-copy">Use os canais disponíveis. Se um link não foi informado, o diagnóstico mantém esse canal a confirmar.</p>
     </section>
     <form class="intake" onSubmit={submit}>
       <section class="form-chapter form-chapter--dark">
         <div class="chapter-number">01 / 03</div>
-        <div class="chapter-copy"><h2>A empresa.</h2><p>Informe o que existe hoje. O Google Maps pode ficar vazio quando a empresa ainda não possui cadastro.</p></div>
+        <div class="chapter-copy"><h2>A empresa.</h2><p>Informe os canais conhecidos. Confirme uma ausência somente quando tiver verificado essa informação.</p></div>
         <div class="fields">
           <label class="field"><span>Nome da empresa <b>{input.mapsUrl ? 'opcional' : 'obrigatório sem Maps'}</b></span><input required={!input.mapsUrl} placeholder="Nome que aparecerá na apresentação" value={input.companyName || ''} onInput={e => set('companyName', e.currentTarget.value)} /></label>
-          <label class="field"><span>Link do Google Maps <i>opcional · deixe vazio se não existir</i></span><input type="url" placeholder="https://maps.google.com/…" value={input.mapsUrl || ''} onInput={e => set('mapsUrl', e.currentTarget.value)} /></label>
+          <label class="field"><span>Link do Google Maps <i>opcional · não informado não significa ausente</i></span><input type="url" placeholder="https://maps.google.com/…" value={input.mapsUrl || ''} onInput={e => set('mapsUrl', e.currentTarget.value)} /></label>
           <label class="field"><span>Site <i>opcional · confirme o endereço correto</i></span><input type="url" placeholder="https://empresa.com.br" value={input.websiteUrl || ''} onInput={e => set('websiteUrl', e.currentTarget.value)} /></label>
           <label class="field"><span>Instagram <i>{input.mapsUrl ? 'opcional' : 'informe este canal se for a única presença'}</i></span><input type="url" placeholder="https://instagram.com/empresa" value={input.instagramUrl || ''} onInput={e => set('instagramUrl', e.currentTarget.value)} /></label>
+          {([['google', 'Google', input.mapsUrl], ['instagram', 'Instagram', input.instagramUrl], ['website', 'site próprio', input.websiteUrl]] as const).filter(([, , url]) => !url?.trim()).map(([channel, label]) => <div class="field" key={channel}>
+            <label><input type="checkbox" checked={input.channelPresence?.[channel]?.state === 'absent_confirmed'} onChange={e => confirmAbsence(channel, e.currentTarget.checked)}/> Verifiquei que a empresa não possui {label}.</label>
+            {input.channelPresence?.[channel]?.state === 'absent_confirmed' && <input required placeholder="Como você confirmou? Ex.: responsável informou em conversa" value={input.channelPresence[channel]?.confirmation?.reference || ''} onInput={e => absenceReference(channel, e.currentTarget.value)}/>}
+          </div>)}
+          {!input.mapsUrl?.trim() && <label class="field"><span>O negócio pode ter um Perfil da Empresa no Google?</span><select value={input.googleEligibility || 'unknown'} onChange={e => set('googleEligibility', e.currentTarget.value)}><option value="unknown">A confirmar</option><option value="eligible">Elegibilidade verificada nas diretrizes do Google</option><option value="ineligible">Não se aplica à modalidade do negócio</option></select><small>Confira as <a href="https://support.google.com/business/answer/13763036?hl=pt-BR" target="_blank" rel="noopener noreferrer">diretrizes do Google</a> antes de recomendar a criação.</small></label>}
           <label class="field"><span>Nome do contato</span><input placeholder="Como você chama essa pessoa?" value={input.contactName || ''} onInput={e => set('contactName', e.currentTarget.value)} /></label>
           <label class="file-field"><span>Logo da empresa</span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={e => uploadLogo(e.currentTarget.files)} /><b>{input.companyLogo ? 'Logo adicionada ✓' : 'Escolher arquivo →'}</b></label>
         </div>
@@ -248,7 +265,7 @@ function NewAnalysis({ go }: { go: (p: string) => void }) {
       </section>
       <section class="form-chapter form-chapter--submit">
         <div class="chapter-number">03 / 03</div>
-        <div class="chapter-copy"><h2>Gerar diagnóstico.</h2><p>O diagnóstico entrega um PDF de duas páginas com os achados e o próximo passo comercial.</p></div>
+        <div class="chapter-copy"><h2>Gerar diagnóstico.</h2><p>O diagnóstico adapta quatro ou cinco páginas aos canais avaliados, com evidências, prioridades e convite para uma conversa sem compromisso.</p></div>
         <div class="submit-block"><p><b>Custo protegido.</b> A ferramenta estima o uso antes da coleta e pede confirmação acima de US$ 1.</p>{error && <Notice tone="error">{error}</Notice>}<button disabled={busy} class="primary-action primary-action--large">{busy ? 'Preparando…' : 'Criar diagnóstico →'}</button></div>
       </section>
     </form>
@@ -280,7 +297,7 @@ function Collection({ analysis, reload, go }: { analysis: Analysis; reload: () =
   return <>
     <section class="analysis-hero"><div><p class="eyebrow">Dossiê {analysis.id.slice(0, 8)}</p><h1>{analysis.companyName || 'Empresa em identificação'}<em>.</em></h1><p>{analysis.input.contactName ? `Preparado para a conversa com ${analysis.input.contactName}.` : 'Uma leitura baseada em sinais públicos e evidências preservadas.'}</p></div><div class="cost-note"><small>Custo estimado</small><b>{money(analysis.estimatedCostUsd)}</b><span>limite automático · US$ 1</span></div></section>
     {error && <Notice tone="error">{error}</Notice>}
-    <section class="collection-sheet"><div class="collection-head"><div><p class="eyebrow">Rastro da coleta</p><h2>{analysis.status === 'finalized' ? 'Diagnóstico de 2 páginas pronto.' : done ? 'Material disponível para correção.' : analysis.status === 'collecting' ? 'Estamos reunindo os sinais.' : 'Pronto para começar.'}</h2></div>{analysis.status === 'draft' && <button class="primary-action" disabled={busy} onClick={() => start()}>{busy ? 'Iniciando…' : 'Iniciar coleta →'}</button>}{done && <div class="collection-actions"><button class="secondary-action" onClick={() => go(`/analises/${analysis.id}/editar`)}>Corrigir conteúdo</button>{analysis.status === 'finalized' && <><button class="primary-action" onClick={() => go(`/apresentacao/${analysis.id}`)}>Ver diagnóstico →</button><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf`} target="_blank">PDF · 2 páginas</a></>}</div>}</div><SourceProgress analysis={analysis} onRetry={retry} /></section>
+    <section class="collection-sheet"><div class="collection-head"><div><p class="eyebrow">Rastro da coleta</p><h2>{analysis.status === 'finalized' ? 'Diagnóstico pronto.' : done ? 'Material disponível para correção.' : analysis.status === 'collecting' ? 'Estamos reunindo os sinais.' : 'Pronto para começar.'}</h2></div>{analysis.status === 'draft' && <button class="primary-action" disabled={busy} onClick={() => start()}>{busy ? 'Iniciando…' : 'Iniciar coleta →'}</button>}{done && <div class="collection-actions"><button class="secondary-action" onClick={() => go(`/analises/${analysis.id}/editar`)}>Corrigir conteúdo</button>{analysis.status === 'finalized' && <><button class="primary-action" onClick={() => go(`/apresentacao/${analysis.id}`)}>Ver diagnóstico →</button><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf`} target="_blank">PDF · {buildCompactDiagnostic(analysis).pageCount} páginas</a></>}</div>}</div><SourceProgress analysis={analysis} onRetry={retry} /></section>
   </>;
 }
 
@@ -381,7 +398,7 @@ function Editor({ analysis, reload, go }: { analysis: Analysis; reload: () => vo
   const openPresentation = async () => { try { await persist(); await api.finalize(analysis.id); go(`/apresentacao/${analysis.id}`); } catch (e) { setError((e as Error).message); } };
   const move = (index: number, delta: number) => setSlides(current => { const next = [...current]; const [item] = next.splice(index, 1); if (!item) return current; next.splice(index + delta, 0, item); return next; });
   return <>
-    <section class="editor-header"><div><p class="eyebrow">Correção opcional</p><h1>{analysis.companyName || 'Diagnóstico'}<em>.</em></h1><p class="editor-description">O material já está pronto. Edite, oculte ou regenere apenas o que precisar.</p></div><div class="editor-actions"><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf`} target="_blank">PDF · 2 páginas</a><button class="secondary-action" onClick={save}>{saved ? 'Correções salvas ✓' : 'Salvar correções'}</button><button class="primary-action" onClick={openPresentation}>Ver diagnóstico →</button></div></section>
+    <section class="editor-header"><div><p class="eyebrow">Correção opcional</p><h1>{analysis.companyName || 'Diagnóstico'}<em>.</em></h1><p class="editor-description">O material já está pronto. Edite, oculte ou regenere apenas o que precisar.</p></div><div class="editor-actions"><a class="secondary-action" href={`/api/analyses/${analysis.id}/pdf`} target="_blank">PDF · {buildCompactDiagnostic(analysis).pageCount} páginas</a><button class="secondary-action" onClick={save}>{saved ? 'Correções salvas ✓' : 'Salvar correções'}</button><button class="primary-action" onClick={openPresentation}>Ver diagnóstico →</button></div></section>
     {error && <Notice tone="error">{error}</Notice>}
     <nav class="editor-tabs"><button class={tab === 'findings' ? 'active' : ''} onClick={() => setTab('findings')}>Achados <span>{findings.length}</span></button><button class={tab === 'slides' ? 'active' : ''} onClick={() => setTab('slides')}>Slides <span>{slides.length}</span></button><button class={tab === 'evidence' ? 'active' : ''} onClick={() => setTab('evidence')}>Evidências <span>{analysis.evidence.length}</span></button></nav>
     {tab === 'findings' && <section class="editor-stack">{findings.map((finding, index) => <FindingEditor key={finding.id} finding={finding} onChange={next => setFindings(current => current.map((f, i) => i === index ? next : f))} onRemove={() => setFindings(current => current.filter((_, i) => i !== index))}/>)}</section>}
@@ -478,7 +495,7 @@ function Presentation({ id, presenter = false }: { id: string; presenter?: boole
   if (!analysis) return <div class="presentation-loading"><Brand/><p>Preparando apresentação…</p></div>;
   const params = new URLSearchParams(location.search);
   const printMode = params.get('print') === '1';
-  if (!presenter && params.get('view') !== 'complete') return <div class={printMode ? 'compact-print' : 'compact-screen'}><CompactDiagnostic analysis={analysis}/>{!printMode && <nav class="compact-controls"><a href={`/api/analyses/${id}/pdf`} target="_blank">Baixar PDF · 2 páginas</a><a href={`/apresentacao/${id}?view=complete&format=mobile`}>Ver diagnóstico completo</a><a href={`/analises/${id}/editar`}>Revisar achados</a></nav>}</div>;
+  if (!presenter && params.get('view') !== 'complete') return <div class={printMode ? 'compact-print' : 'compact-screen'}><CompactDiagnostic analysis={analysis}/>{!printMode && <nav class="compact-controls"><a href={`/api/analyses/${id}/pdf`} target="_blank">Baixar PDF · {buildCompactDiagnostic(analysis).pageCount} páginas</a><a href={`/apresentacao/${id}?view=complete&format=mobile`}>Ver diagnóstico completo</a><a href={`/analises/${id}/editar`}>Revisar achados</a></nav>}</div>;
   const format: PresentationFormat = params.get('format') === 'mobile' ? 'mobile' : 'desktop';
   if (printMode) return <div class={`print-deck print-deck--${format}`} data-presentation-ready="true">{analysis.slides.map(item => <SlideCanvas key={item.id} slide={item} analysis={analysis} format={format}/>)}</div>;
   const slide = analysis.slides[index]; const next = analysis.slides[index + 1]; const clock = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;

@@ -89,7 +89,7 @@ export class WebsiteAuditor {
         try {
           const candidate = new URL(href, url);
           candidate.hash = "";
-          if (candidate.origin === initial.origin && /^https?:$/.test(candidate.protocol) && !seen.has(candidate.href) && isUsefulPath(candidate.pathname)) {
+          if (isRelevantAuditLink(initial, candidate) && !seen.has(candidate.href)) {
             queue.push(candidate);
           }
         } catch { /* link inválido */ }
@@ -323,6 +323,13 @@ function inspectPage(url: string, status: number, html: string): WebsitePage {
 function extractLinks(html: string): string[] {
   return [...html.matchAll(/<a[^>]+href=["']([^"'#]+)["']/gi)]
     .map((match) => match[1]).filter((value): value is string => Boolean(value));
+}
+
+/** Shared profile providers must not lend their institutional pages to a business audit. */
+export function isRelevantAuditLink(initial: URL, candidate: URL): boolean {
+  if (candidate.origin !== initial.origin || !/^https?:$/.test(candidate.protocol)) return false;
+  if (/(^|\.)linktr\.ee$/i.test(initial.hostname)) return candidate.pathname.replace(/\/$/, '') === initial.pathname.replace(/\/$/, '');
+  return isUsefulPath(candidate.pathname);
 }
 
 function isUsefulPath(path: string): boolean {

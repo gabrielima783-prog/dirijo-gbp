@@ -72,8 +72,8 @@ async function validateRenderedSlides(
 ): Promise<number> {
   const slideLocator = page.locator('[data-slide]');
   const slideCount = await slideLocator.count();
-  if (slideCount !== 2 && (slideCount < 8 || slideCount > 10)) {
-    throw new Error(`A apresentação renderizada precisa ter 2 páginas ou entre 8 e 10 slides; recebeu ${slideCount}`);
+  if (slideCount < 4 || slideCount > 10) {
+    throw new Error(`A apresentação renderizada precisa ter entre 4 e 10 páginas; recebeu ${slideCount}`);
   }
   if (expectedSlideCount !== undefined && slideCount !== expectedSlideCount) {
     throw new Error(`A apresentação renderizou ${slideCount} slides; eram esperados ${expectedSlideCount}`);
@@ -119,7 +119,9 @@ export async function exportPresentationPdf(options: PdfExportOptions): Promise<
   const presentationUrl = validateLocalPresentationUrl(options.presentationUrl);
   validateOutputPath(options.outputPath);
   const format = options.format ?? 'desktop';
-  const pageSize = format === 'mobile'
+  const pageSize = format === 'mobile' && presentationUrl.searchParams.get('view') === 'compact'
+    ? { width: '810px', height: '1440px', viewport: { width: 810, height: 1440 } }
+    : format === 'mobile'
     ? { width: '1080px', height: '1920px', viewport: { width: 1080, height: 1920 } }
     : { width: '13.333333in', height: '7.5in', viewport: { width: 1280, height: 720 } };
   const timeoutMs = options.timeoutMs ?? 45_000;

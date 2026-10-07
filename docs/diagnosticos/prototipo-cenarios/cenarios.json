@@ -1,0 +1,39 @@
+{
+  "version": 3,
+  "scope": "Protótipo local de planejamento editorial, sem conexão com a aplicação",
+  "scenarios": {
+    "google_instagram_no_site": {
+      "title": "Google e Instagram, sem site próprio",
+      "purpose": "Conectar descoberta, confiança e contato usando os dois canais já existentes.",
+      "pages": [
+        {"title": "O que encontramos no seu negócio", "job": "Reconhecer a empresa e apresentar a conclusão", "content": "Um ponto forte verificado, a situação dos canais e as principais oportunidades. Informar qual destino recebe os contatos.", "copy": "Analisamos como seu negócio se apresenta no Google e no Instagram e como uma pessoa chega ao contato."},
+        {"title": "Como você aparece para quem pesquisa", "job": "Explicar descoberta e confiança no Google", "content": "Informações comerciais, serviços, avaliações, respostas e contato. Selecionar o achado mais relevante e mostrar a evidência.", "copy": "Quando alguém pesquisa um serviço na região, informações claras ajudam a entender se o seu negócio atende ao que essa pessoa procura."},
+        {"title": "Como o Instagram ajuda a escolher e chamar", "job": "Avaliar o Instagram e o destino de contato", "content": "Bio, atuação, região, serviços, confiança, orientações de contato e o link realmente utilizado. Reconhecer o que já funciona.", "copy": "Seu perfil pode ajudar a pessoa a conhecer seu trabalho, esclarecer dúvidas e entender como pedir informações."},
+        {"title": "O que priorizar e quando uma página ajudaria", "job": "Dar ordem às ações e explicar o papel eventual do site", "content": "Prioridades dos canais atuais. Uma página própria entra se houver necessidade de explicar serviços, organizar informações, apoiar campanhas ou medir o caminho de contato.", "copy": "Uma página própria pode fazer sentido se a pessoa precisar de informações que hoje estão dispersas antes de entrar em contato."},
+        {"title": "Vamos definir sua prioridade", "job": "Oferecer uma conversa com entrega concreta", "content": "Conectar os achados aos objetivos do responsável e definir o primeiro ajuste. 20 minutos, sem custo e sem compromisso de contratação.", "copy": "Vamos olhar o que já funciona e escolher onde concentrar o próximo esforço do seu negócio."}
+      ]
+    },
+    "google_only_no_site": {
+      "title": "Somente Google",
+      "purpose": "Fortalecer as informações e a confiança no canal observado e avaliar se outro canal resolveria uma necessidade real.",
+      "pages": [
+        {"title": "Seu ponto de partida no Google", "job": "Mostrar uma leitura específica do perfil", "content": "Identidade da unidade, ponto forte, cobertura e achados. Instagram e site só aparecem como ausentes se houver confirmação.", "copy": "Analisamos o que uma pessoa encontra no seu Perfil da Empresa antes de decidir entrar em contato."},
+        {"title": "Informação e contato", "job": "Conferir se o possível cliente entende o negócio e o próximo passo", "content": "Serviços, categoria, região, horários, telefone e destino de contato observados. Não presumir defeito por um recurso indisponível.", "copy": "Quem pesquisa precisa entender o que você oferece, onde atende e como falar com a empresa."},
+        {"title": "Confiança antes do primeiro contato", "job": "Interpretar reputação e apresentação", "content": "Avaliações, respostas verificadas, fotos e informação pública. Sem avaliações, explicar a utilidade de relatos reais sem inventar reputação ruim.", "copy": "Relatos e imagens do próprio negócio podem ajudar quem ainda não conhece seu atendimento a formar confiança."},
+        {"title": "O que fortalecer e o que vale acrescentar", "job": "Evitar expansão automática de canais", "content": "Priorizar ajustes no Google. Considerar Instagram para apresentar trabalho e esclarecer dúvidas; página própria para aprofundar serviços e organizar contato. Escolher pelo contexto.", "copy": "Antes de abrir outro canal, vale definir qual informação ele acrescentaria e como ajudaria quem procura seu serviço."},
+        {"title": "Vamos escolher o próximo passo", "job": "Ligar a reunião a uma decisão útil", "content": "Definir se o melhor próximo passo está no perfil atual ou em uma presença complementar. 20 minutos, sem custo e sem compromisso de contratação.", "copy": "Na conversa, vamos avaliar o que fortalecer no Google e se outro canal faz sentido para o seu momento."}
+      ]
+    },
+    "instagram_only_no_site": {
+      "title": "Somente Instagram",
+      "purpose": "Melhorar a escolha e o contato no Instagram e avaliar descoberta local fora do perfil, quando pertinente.",
+      "pages": [
+        {"title": "Como seu negócio se apresenta no Instagram", "job": "Reconhecimento e cobertura verdadeira", "content": "Perfil observado, ponto forte e oportunidades. Não afirmar ausência do Google por falta de URL.", "copy": "Analisamos como uma pessoa entende seu trabalho e encontra o caminho para conversar com você pelo Instagram."},
+        {"title": "Do interesse ao contato", "job": "Aprofundar clareza e ação no Instagram", "content": "Identidade, serviços, região quando pertinente, conteúdo observado, bio, chamadas e destino do link. Separar problema, ponto forte e desconhecido.", "copy": "Depois de se interessar por uma publicação, a pessoa precisa entender se o serviço é para ela e como pedir informações."},
+        {"title": "Como ampliar a descoberta local", "job": "Explicar o papel do Google somente quando cabível", "content": "Com ausência confirmada e elegibilidade verificada, explicar pesquisa local, informações, avaliações e contato. Se estiver a confirmar, usar verificação; se não se aplicar, aprofundar confiança no Instagram.", "copy": "Para um negócio local elegível, o Perfil da Empresa pode complementar o Instagram ao reunir informações para quem pesquisa serviços na região."},
+        {"title": "A ordem para o seu momento", "job": "Priorizar o canal atual e a expansão justificada", "content": "Corrigir dificuldades observadas no Instagram. Depois, decidir sobre Google e eventual página própria conforme modalidade, objetivos e necessidade de informação.", "copy": "A prioridade depende de como as pessoas conhecem seu negócio hoje e de onde você quer abrir novas oportunidades de contato."},
+        {"title": "Vamos definir onde atuar primeiro", "job": "Dar motivo para conversar", "content": "Escolher entre melhorar o caminho atual e preparar descoberta complementar. 20 minutos, sem custo e sem compromisso de contratação.", "copy": "Você sai com uma prioridade, uma recomendação prática e clareza sobre como a Dirijo pode ajudar."}
+      ]
+    }
+  }
+}
