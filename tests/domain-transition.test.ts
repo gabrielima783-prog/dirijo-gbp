@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DomainTransition } from '../src/server/domain-transition.js';
+import { DomainTransition, backgroundJobsInitiallyEnabled } from '../src/server/domain-transition.js';
 test('candidate queues requests and activates only after the verified handover', async()=>{
  const transition = new DomainTransition(false);
  transition.beginProxy();
@@ -41,4 +41,18 @@ test('candidate forwards authenticated requests only after validating the extern
   const waiting=app.request('https://gbp.dirijobr.com/api/analyses');await new Promise(resolve=>setImmediate(resolve));assert.equal(transition.queuedRequests,1);
   assert.equal(transition.requestActivation(true,0),true);assert.equal((await waiting).status,401);assert.equal(requests.length,1);
  }finally{globalThis.fetch=previousFetch;db.close();if(previous===undefined)delete process.env.PUBLIC_URL;else process.env.PUBLIC_URL=previous;if(previousAdditional===undefined)delete process.env.ADDITIONAL_PUBLIC_ORIGINS;else process.env.ADDITIONAL_PUBLIC_ORIGINS=previousAdditional;}
+});
+
+
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+test('persistent marker restores the active owner after reboot',()=>{
+ const folder=mkdtempSync(join(tmpdir(),'gbp-marker-'));const previousFlag=process.env.BACKGROUND_JOBS_ENABLED,previousMarker=process.env.BACKGROUND_JOBS_ENABLE_FILE;
+ try {
+  process.env.BACKGROUND_JOBS_ENABLED='false';process.env.BACKGROUND_JOBS_ENABLE_FILE=join(folder,'enabled');
+  assert.equal(backgroundJobsInitiallyEnabled(),false);
+  writeFileSync(process.env.BACKGROUND_JOBS_ENABLE_FILE,'enabled');assert.equal(backgroundJobsInitiallyEnabled(),true);
+  assert.equal(new DomainTransition(backgroundJobsInitiallyEnabled()).active,true);
+ }finally{rmSync(folder,{recursive:true,force:true});if(previousFlag===undefined)delete process.env.BACKGROUND_JOBS_ENABLED;else process.env.BACKGROUND_JOBS_ENABLED=previousFlag;if(previousMarker===undefined)delete process.env.BACKGROUND_JOBS_ENABLE_FILE;else process.env.BACKGROUND_JOBS_ENABLE_FILE=previousMarker;}
 });

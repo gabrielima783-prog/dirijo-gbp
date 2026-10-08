@@ -1,3 +1,10 @@
+import { existsSync } from "node:fs";
+
+export function backgroundJobsInitiallyEnabled(): boolean {
+  const marker = process.env.BACKGROUND_JOBS_ENABLE_FILE;
+  return marker ? existsSync(marker) : process.env.BACKGROUND_JOBS_ENABLED !== "false";
+}
+
 /** Keeps requests pending during the short, verified handover between singleton owners. */
 export class DomainTransition {
   active: boolean;

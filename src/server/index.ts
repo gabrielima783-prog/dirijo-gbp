@@ -1,4 +1,4 @@
-import { DomainTransition } from "./domain-transition.js";
+import { DomainTransition, backgroundJobsInitiallyEnabled } from "./domain-transition.js";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
@@ -21,12 +21,14 @@ const settings = new LocalSettingsStore(baseConfig, resolve(projectDir, "data"))
 const config = settings.resolve();
 const database = createDatabase({ filename: config.databaseFile });
 const repository = new AnalysisRepository(database);
-const transition = new DomainTransition(process.env.BACKGROUND_JOBS_ENABLED !== "false");
+const transition = new DomainTransition(backgroundJobsInitiallyEnabled());
 const sourceRunsRunning = () => Number((database.prepare("SELECT COUNT(*) AS count FROM source_runs WHERE status='running'").get() as { count: number }).count);
 const analysesCollecting = () => Number((database.prepare("SELECT COUNT(*) AS count FROM analyses WHERE status='collecting'").get() as { count: number }).count);
 if (transition.active) repository.recoverInterrupted();
 else {
   if (!process.env.ACTIVE_BACKEND_URL || !process.env.ACTIVE_BACKEND_PUBLIC_URL || !process.env.BACKGROUND_JOBS_ENABLE_FILE) throw new Error("HTTP candidate requires explicit active backend and activation marker configuration.");
+}
+if (process.env.BACKGROUND_JOBS_ENABLE_FILE) {
   process.on("SIGUSR2", () => {
     if (transition.requestActivation(existsSync(process.env.BACKGROUND_JOBS_ENABLE_FILE!), sourceRunsRunning() + analysesCollecting())) repository.recoverInterrupted();
   });
