@@ -19,9 +19,10 @@
         "installRoot": "/srv/dirijo-gbp",
         "visibility": "public",
         "internalHealth": [
-          "http://127.0.0.1:3006/api/health"
+          "http://127.0.0.1:5006/api/health"
         ],
         "externalHealth": [
+          "https://gbp.dirijobr.com/api/health",
           "https://gbp.viradadonutri.com.br/api/health"
         ]
       }

@@ -1,6 +1,6 @@
 # Dirijo GBP na VPS
 
-Stack exclusiva `dirijo-gbp-production`, root `/srv/dirijo-gbp`, alias SSH `central-ops-ovh`. Node 24.14.0, Playwright 1.63.0 com Chromium instalado pelo próprio pacote. Aplicação não privilegiada com 2 GB/1 CPU e acesso somente `127.0.0.1:3006`; Tunnel dedicado serve `https://gbp.viradadonutri.com.br` apontando para `http://app:8787` na rede Compose.
+Stack exclusiva `dirijo-gbp-production`, root `/srv/dirijo-gbp`, alias SSH `central-ops-ovh`. Node 24.14.0, Playwright 1.63.0 com Chromium instalado pelo próprio pacote. Aplicação não privilegiada com 2 GB/1 CPU e acesso local. Desde 08/10/2026, o ciclo oficial de migração atende `https://gbp.dirijobr.com` e preserva `https://gbp.viradadonutri.com.br` na mesma aplicação autenticada. O container ativo usa `127.0.0.1:5006`; a porta de candidatos futuros é determinada pelo executor, sem depender do endereço legado `3006`.
 
 ## Provisionamento privado
 
@@ -47,3 +47,12 @@ O adaptador singleton anterior (`compose up -d`) não pode ser usado para esta p
 Barreira de promoção: enviar SIGUSR2 sem marcador para colocar as novas requisições em espera, sem retornar erro. Aguardar `proxyInFlight=0`, `sourceRunsRunning=0` e `analysesCollecting=0` no health, drenar e parar o dono antigo. Criar o marcador e enviar SIGUSR2 novamente. A aplicação valida as três contagens novamente, ativa seu processamento local e libera as requisições que aguardavam. Ativação é idempotente. O marcador preservado tem prioridade no próximo boot e mantém a aplicação ativa localmente, sem voltar ao backend aposentado. Antes da ativação, SIGHUP retoma o proxy para o backend anterior em caso de cancelamento; o backend anterior precisa estar saudável. Nenhum SIGUSR1 é usado. O executor deve verificar os dois hosts e os vizinhos após a troca.
 
 A preparação deste código não comprova publicação. SHA, checksum, health e rollback devem ser registrados no STATUS após o executor confirmar a promoção.
+
+
+## Operação após a migração de 08/10/2026
+
+A aplicação está no ciclo oficial `domain_migration.py`, com ponteiro ativo persistente. `vps_ops.py status/plan` reconhece esse ciclo; `run` prepara outro candidato HTTP paralelo e não é uma promoção concluída. Não executar o adaptador Compose diretamente, não remover os ponteiros nem reiniciar o container antigo para tentar recuperar serviço.
+
+Para publicação futura, partir de checkout limpo na origin/main exata, manter `PUBLIC_URL=https://gbp.dirijobr.com` e `ADDITIONAL_PUBLIC_ORIGINS=https://gbp.viradadonutri.com.br` enquanto houver coexistência. Preparar candidato pelo executor oficial, revisar health e autenticação, trocar ambos os destinos Tunnel para o candidato e só então fornecer prova fresca ao `activate`. O helper drena HTTP, recusa trabalhos/conexões em execução, encerra somente a fonte, instala marcador root0444 e ativa o backend local. A variável inicial `BACKGROUND_JOBS_ENABLED=false` continua no container: após promoção, o marcador persistente controla a ativação, inclusive no reboot.
+
+O retorno suportado é `stage-rollback` seguido da mesma revisão, roteamento e ativação com prova fresca. Current e previous finais têm o SHA `655bb7e18bb11eb2c074d63729f79e1835c3f9b4`, mas configurações distintas: current principal novo, previous principal antigo com domínio novo adicional. A seleção usa os snapshots e IDs reais de containers, não somente o SHA. O previous compatível foi preservado parado; a fonte anterior à compatibilidade não é um retorno direto permitido. Não alterar SQLite, backups, volumes, secrets nem remover containers protegidos.
