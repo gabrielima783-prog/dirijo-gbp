@@ -23,11 +23,12 @@ const database = createDatabase({ filename: config.databaseFile });
 const repository = new AnalysisRepository(database);
 const transition = new DomainTransition(process.env.BACKGROUND_JOBS_ENABLED !== "false");
 const sourceRunsRunning = () => Number((database.prepare("SELECT COUNT(*) AS count FROM source_runs WHERE status='running'").get() as { count: number }).count);
+const analysesCollecting = () => Number((database.prepare("SELECT COUNT(*) AS count FROM analyses WHERE status='collecting'").get() as { count: number }).count);
 if (transition.active) repository.recoverInterrupted();
 else {
   if (!process.env.ACTIVE_BACKEND_URL || !process.env.ACTIVE_BACKEND_PUBLIC_URL || !process.env.BACKGROUND_JOBS_ENABLE_FILE) throw new Error("HTTP candidate requires explicit active backend and activation marker configuration.");
   process.on("SIGUSR2", () => {
-    if (transition.requestActivation(existsSync(process.env.BACKGROUND_JOBS_ENABLE_FILE!), sourceRunsRunning())) repository.recoverInterrupted();
+    if (transition.requestActivation(existsSync(process.env.BACKGROUND_JOBS_ENABLE_FILE!), sourceRunsRunning() + analysesCollecting())) repository.recoverInterrupted();
   });
   process.on("SIGHUP", () => transition.resumeProxy());
 }
@@ -50,6 +51,7 @@ const app = createApp({
   auth,
   transition,
   sourceRunsRunning,
+  analysesCollecting,
   ...(process.env.ACTIVE_BACKEND_URL ? { activeBackendUrl: process.env.ACTIVE_BACKEND_URL, activeBackendPublicUrl: process.env.ACTIVE_BACKEND_PUBLIC_URL! } : {}),
   service,
   repository,

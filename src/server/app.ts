@@ -21,6 +21,7 @@ export interface AppDependencies {
   baseUrl?: string | undefined;
   transition?: DomainTransition;
   sourceRunsRunning?: () => number;
+  analysesCollecting?: () => number;
   activeBackendUrl?: string;
   activeBackendPublicUrl?: string;
 }
@@ -98,7 +99,7 @@ export function createApp(deps: AppDependencies): Hono {
     app.post("/api/auth/logout", c => {auth.logout(c);return c.body(null,204);});
     app.post("/api/auth/password", async c => { const body=await readJson<{currentPassword:string;newPassword:string}>(c);auth.changePassword(c,body.currentPassword,body.newPassword);return c.json(auth.user(c)); });
   }
-  app.get("/api/health", (c) => c.json({ ok: true, running: true, ...(deps.transition ? { proxyActive: !deps.transition.active, draining: deps.transition.draining, proxyInFlight: deps.transition.proxyInFlight, queuedRequests: deps.transition.queuedRequests, sourceRunsRunning: deps.sourceRunsRunning?.() ?? 0 } : {}) }));
+  app.get("/api/health", (c) => c.json({ ok: true, running: true, ...(deps.transition ? { proxyActive: !deps.transition.active, draining: deps.transition.draining, proxyInFlight: deps.transition.proxyInFlight, queuedRequests: deps.transition.queuedRequests, sourceRunsRunning: deps.sourceRunsRunning?.() ?? 0, analysesCollecting: deps.analysesCollecting?.() ?? 0 } : {}) }));
   app.get("/api/settings", (c) => {
     if (!deps.settings) throw new Error("Configurações locais não disponíveis.");
     return c.json(deps.settings.publicView());
