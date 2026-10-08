@@ -1,3 +1,4 @@
+import { DomainTransition } from "./domain-transition.js";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
@@ -20,7 +21,16 @@ const settings = new LocalSettingsStore(baseConfig, resolve(projectDir, "data"))
 const config = settings.resolve();
 const database = createDatabase({ filename: config.databaseFile });
 const repository = new AnalysisRepository(database);
-repository.recoverInterrupted();
+const transition = new DomainTransition(process.env.BACKGROUND_JOBS_ENABLED !== "false");
+const sourceRunsRunning = () => Number((database.prepare("SELECT COUNT(*) AS count FROM source_runs WHERE status='running'").get() as { count: number }).count);
+if (transition.active) repository.recoverInterrupted();
+else {
+  if (!process.env.ACTIVE_BACKEND_URL || !process.env.ACTIVE_BACKEND_PUBLIC_URL || !process.env.BACKGROUND_JOBS_ENABLE_FILE) throw new Error("HTTP candidate requires explicit active backend and activation marker configuration.");
+  process.on("SIGUSR2", () => {
+    if (transition.requestActivation(existsSync(process.env.BACKGROUND_JOBS_ENABLE_FILE!), sourceRunsRunning())) repository.recoverInterrupted();
+  });
+  process.on("SIGHUP", () => transition.resumeProxy());
+}
 const auth = new AuthStore(database);
 function integrations(current: ServerConfig) {
   return {
@@ -38,6 +48,9 @@ const service = new AnalysisService({
 const baseUrl = process.env.NODE_ENV === "production" ? `http://127.0.0.1:${config.port}` : "http://127.0.0.1:5173";
 const app = createApp({
   auth,
+  transition,
+  sourceRunsRunning,
+  ...(process.env.ACTIVE_BACKEND_URL ? { activeBackendUrl: process.env.ACTIVE_BACKEND_URL, activeBackendPublicUrl: process.env.ACTIVE_BACKEND_PUBLIC_URL! } : {}),
   service,
   repository,
   config,

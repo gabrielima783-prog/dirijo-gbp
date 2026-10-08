@@ -37,3 +37,13 @@ O adaptador `verify` executa `infra/verify-diagnostic.mjs` dentro da aplicação
 O formulário registra ausências confirmadas com método, data e referência. Dados antigos sem essa confirmação permanecem a confirmar. O PDF comercial é montado a partir das evidências preservadas a cada abertura/exportação; não é necessário refazer a coleta de diagnósticos históricos para aplicar a nova apresentação.
 
 O backup criptografado usa multipart no R2 acima de 50 MiB, com partes limitadas a 50 MiB e confirmação do tamanho final. O Worker mantém o GET do arquivo inteiro e o formato AES-256-GCM. Antes de trocar a aplicação, o executor usa o helper de backup da release candidata sobre a imagem vigente, preservando o snapshot consistente e o gate remoto. Se o envio falhar, a aplicação vigente permanece ativa e o arquivo criptografado local é preservado.
+
+## Migração de domínio sem interrupção, 08/10/2026
+
+Origem canônica: `https://gbp.dirijobr.com`. `ADDITIONAL_PUBLIC_ORIGINS` mantém `https://gbp.viradadonutri.com.br` durante a coexistência. Cookies continuam restritos ao host e os dois endereços exigem autenticação própria. Não há callback Google OAuth neste produto.
+
+O adaptador singleton anterior (`compose up -d`) não pode ser usado para esta promoção enquanto a continuidade total for obrigatória. O executor deve iniciar um candidato HTTP saudável antes de trocar ingress, com `BACKGROUND_JOBS_ENABLED=false`, `ACTIVE_BACKEND_URL` interno apontando para a aplicação anterior, `ACTIVE_BACKEND_PUBLIC_URL` igual à origem anterior e `BACKGROUND_JOBS_ENABLE_FILE` apontando para um marcador externo montado em diretório somente leitura. O candidato não recupera execuções nem inicia trabalho próprio; encaminha todas as requisições ao dono anterior, exceto `/api/health`. Valida Origin explicitamente antes de reescrevê-lo para o backend anterior; preserva sessão, corpo, headers e resposta.
+
+Barreira de promoção: enviar SIGUSR2 sem marcador para colocar as novas requisições em espera, sem retornar erro. Aguardar `proxyInFlight=0` e `sourceRunsRunning=0` no health, drenar e parar o dono antigo. Criar o marcador e enviar SIGUSR2 novamente. A aplicação valida ambas as contagens novamente, ativa seu processamento local e libera as requisições que aguardavam. Ativação é idempotente. Antes da ativação, SIGHUP retoma o proxy para o backend anterior em caso de cancelamento; o backend anterior precisa estar saudável. Nenhum SIGUSR1 é usado. O executor deve verificar os dois hosts e os vizinhos após a troca.
+
+A preparação deste código não comprova publicação. SHA, checksum, health e rollback devem ser registrados no STATUS após o executor confirmar a promoção.
