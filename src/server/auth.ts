@@ -19,8 +19,8 @@ function verify(value: string, stored: string): boolean {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 export class AuthStore {
-  constructor(readonly db: DatabaseSync, readonly secure = process.env.NODE_ENV === 'production') {
-    db.exec(`CREATE TABLE IF NOT EXISTS auth_users(id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT NOT NULL,role TEXT NOT NULL,password_hash TEXT NOT NULL,must_change INTEGER NOT NULL DEFAULT 1,active INTEGER NOT NULL DEFAULT 1);
+  constructor(readonly db: DatabaseSync, readonly secure = process.env.NODE_ENV === 'production', initializeDatabase = true) {
+    if (initializeDatabase) db.exec(`CREATE TABLE IF NOT EXISTS auth_users(id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT NOT NULL,role TEXT NOT NULL,password_hash TEXT NOT NULL,must_change INTEGER NOT NULL DEFAULT 1,active INTEGER NOT NULL DEFAULT 1);
     CREATE TABLE IF NOT EXISTS auth_sessions(token_hash TEXT PRIMARY KEY,user_id TEXT,expires_at INTEGER NOT NULL,analysis_id TEXT,FOREIGN KEY(user_id) REFERENCES auth_users(id));
     CREATE TABLE IF NOT EXISTS auth_login_attempts(key TEXT PRIMARY KEY,count INTEGER NOT NULL,expires_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS auth_events(id TEXT PRIMARY KEY,user_id TEXT,analysis_id TEXT,action TEXT NOT NULL,created_at TEXT NOT NULL);`);

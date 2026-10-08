@@ -34,3 +34,14 @@ test('sessions, first password, operator restrictions, scoped rendering and revo
  assert.equal((await request('/api/analyses','GET',cookie)).status,401);
  assert.deepEqual(await (await request('/api/health')).json(),{ok:true,running:true});db.close();
 });
+
+test('domain transition accepts configured origins and rejects unrelated origins', async()=>{
+ const previous=process.env.PUBLIC_URL; const previousAdditional=process.env.ADDITIONAL_PUBLIC_ORIGINS;
+ process.env.PUBLIC_URL='https://gbp.dirijobr.com';process.env.ADDITIONAL_PUBLIC_ORIGINS='https://gbp.viradadonutri.com.br';
+ const db=createDatabase({filename:':memory:'});const repository=new AnalysisRepository(db);const auth=new AuthStore(db,false);
+ try {
+  const app=createApp({auth,repository,service:new AnalysisService({repository}),config:loadConfig('/tmp/gbp-domain-empty')});
+  for(const origin of ['https://gbp.dirijobr.com','https://gbp.viradadonutri.com.br']) assert.equal((await app.request('/api/auth/login',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({email:'missing@example.test',password:'missing'})})).status,401);
+  for(const origin of ['https://evil.test','https://gbp.dirijobr.com.evil.test']) assert.equal((await app.request('/api/auth/login',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'})).status,403);
+ } finally {db.close();if(previous===undefined)delete process.env.PUBLIC_URL;else process.env.PUBLIC_URL=previous;if(previousAdditional===undefined)delete process.env.ADDITIONAL_PUBLIC_ORIGINS;else process.env.ADDITIONAL_PUBLIC_ORIGINS=previousAdditional;}
+});

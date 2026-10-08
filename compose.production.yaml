@@ -22,7 +22,8 @@ services:
       HOST: 0.0.0.0
       PORT: 8787
       AUTH_ENABLED: "true"
-      PUBLIC_URL: https://gbp.viradadonutri.com.br
+      PUBLIC_URL: https://gbp.dirijobr.com
+      ADDITIONAL_PUBLIC_ORIGINS: https://gbp.viradadonutri.com.br
       DATABASE_FILE: /app/data/dirijo-gbp.sqlite
       ASSETS_DIR: /app/data/assets
       ANALYSIS_COST_LIMIT_USD: "1"
