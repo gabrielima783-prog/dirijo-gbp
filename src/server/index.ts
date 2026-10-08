@@ -19,9 +19,9 @@ const projectDir = resolve(process.cwd());
 const baseConfig = loadConfig(projectDir);
 const settings = new LocalSettingsStore(baseConfig, resolve(projectDir, "data"));
 const config = settings.resolve();
-const database = createDatabase({ filename: config.databaseFile });
-const repository = new AnalysisRepository(database);
 const transition = new DomainTransition(backgroundJobsInitiallyEnabled());
+const database = createDatabase({ filename: config.databaseFile, existingOnly: !transition.active });
+const repository = new AnalysisRepository(database);
 const sourceRunsRunning = () => Number((database.prepare("SELECT COUNT(*) AS count FROM source_runs WHERE status='running'").get() as { count: number }).count);
 const analysesCollecting = () => Number((database.prepare("SELECT COUNT(*) AS count FROM analyses WHERE status='collecting'").get() as { count: number }).count);
 if (transition.active) repository.recoverInterrupted();
@@ -34,7 +34,7 @@ if (process.env.BACKGROUND_JOBS_ENABLE_FILE) {
   });
   process.on("SIGHUP", () => transition.resumeProxy());
 }
-const auth = new AuthStore(database);
+const auth = new AuthStore(database, process.env.NODE_ENV === "production", transition.active);
 function integrations(current: ServerConfig) {
   return {
     apify: current.apifyToken ? new ApifyClient({ token: current.apifyToken, actorId: current.apifyActorId }) : undefined,

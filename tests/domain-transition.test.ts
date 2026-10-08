@@ -56,3 +56,23 @@ test('persistent marker restores the active owner after reboot',()=>{
   assert.equal(new DomainTransition(backgroundJobsInitiallyEnabled()).active,true);
  }finally{rmSync(folder,{recursive:true,force:true});if(previousFlag===undefined)delete process.env.BACKGROUND_JOBS_ENABLED;else process.env.BACKGROUND_JOBS_ENABLED=previousFlag;if(previousMarker===undefined)delete process.env.BACKGROUND_JOBS_ENABLE_FILE;else process.env.BACKGROUND_JOBS_ENABLE_FILE=previousMarker;}
 });
+
+import { DatabaseSync } from 'node:sqlite';
+import { existsSync, readFileSync } from 'node:fs';
+test('candidate startup never creates SQLite or runs schema and migrations',()=>{
+ const folder=mkdtempSync(join(tmpdir(),'gbp-candidate-db-'));const path=join(folder,'existing.sqlite');
+ const originalExec=DatabaseSync.prototype.exec;
+ try {
+  assert.throws(()=>createDatabase({filename:join(folder,'missing','new.sqlite'),existingOnly:true}),/existing SQLite/);
+  assert.equal(existsSync(join(folder,'missing')),false);
+  const initial=createDatabase({filename:path});new AuthStore(initial,false);initial.close();
+  const before=readFileSync(path);
+  const sql:string[]=[];
+  DatabaseSync.prototype.exec=function(statement:string){sql.push(statement);return originalExec.call(this,statement);};
+  const candidate=createDatabase({filename:path,existingOnly:true,migrationFile:'/missing-migration-must-not-read'});
+  new AuthStore(candidate,false,false);
+  candidate.close();
+  assert.deepEqual(sql,['PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;']);
+  assert.deepEqual(readFileSync(path),before);
+ }finally{DatabaseSync.prototype.exec=originalExec;rmSync(folder,{recursive:true,force:true});}
+});
