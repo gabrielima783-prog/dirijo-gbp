@@ -28,7 +28,7 @@
       }
     },
     "neighborHealth": [
-      "https://ops.viradadonutri.com.br/health",
+      "https://health.dirijobr.com/health",
       "https://mapeia.viradadonutri.com.br/api/health",
       "https://threads.viradadonutri.com.br/health",
       "https://alertas.viradadonutri.com.br/health"
