@@ -66,3 +66,8 @@ O administrador Gabriel usa `adm@dirijobr.com`, com a senha existente. O e-mail 
 ## Ajuste automático de páginas, 09/10/2026
 
 A prévia comercial ajusta cada página somente após fontes e imagens carregarem. Recupera primeiro o espaço entre blocos e, quando necessário, reduz a escala do conteúdo até o piso de 86%, sem truncar texto. A apresentação marca `data-presentation-ready=true` somente depois desse ajuste; o exportador aguarda esse marcador antes de conferir dimensões, transbordamento e rodapé. O limite de legibilidade não substitui a rejeição de conteúdo excepcional que não cabe. Conferir PDF real e celular depois de mudanças no layout.
+
+
+## Imagem do backup no ciclo de domínio, 09/10/2026
+
+O launcher do backup identifica a imagem imutável do container registrado em `domain-migration-active.json`, exigindo que sua release coincida com `current`. No ciclo Compose legado, resolve o digest da imagem versionada local. Não presume que o ciclo de domínio também criou a tag `dirijo-gbp:<SHA>` e não tenta baixar imagem do registro. Mantém o snapshot SQLite consistente, a cifra e o upload multipart existentes. Divergência de identidade interrompe o backup.
