@@ -8,7 +8,7 @@ Publicado em https://gbp.dirijobr.com, com https://gbp.viradadonutri.com.br pres
 
 Release em produção: `db3106049500add06ec7020cb6f4bde6cf3283fc`, pacote SHA-256 `60ad82fbb4d18c80fc35464315b4ff7548d12b669b9b68090997257830b9e07c`. Publicação pelo executor canônico e ciclo oficial de domínio. `current` aponta para essa release; `previous` para `655bb7e18bb11eb2c074d63729f79e1835c3f9b4`, compatível com os dois domínios. Retorno suportado por `stage-rollback` e ativação coordenada. Nenhuma limpeza de releases executada nesta publicação; banco, arquivos, secrets e backups preservados.
 
-Health interno e externo passaram. Dirijo Ops, Dirijo Flow, Dirijo Content e Assistente Pessoal continuaram retornando 200. Disco após conferência: 20% livre, 21.002.632 KiB disponíveis, 89% de inodes livres.
+Health interno e dos dois domínios HTTP 200. Dirijo Ops, Dirijo Flow e Dirijo Content HTTP 200; Assistente Pessoal HTTP 302 esperado para o controle de acesso. Capacidade conferida após a promoção: 30.0 GiB de disco disponíveis.
 
 ## Acesso e uso
 
