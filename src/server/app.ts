@@ -7,6 +7,7 @@ import { AnalysisRepository } from "./repository.js";
 import { AnalysisService, CostLimitError, NotFoundError, OperationBusyError } from "./service.js";
 import { exportAnalysisPdf } from "./pdf.js";
 import { buildCompactDiagnostic } from "../core/compact-diagnostic.js";
+import type { DomainTransition } from "./domain-transition.js";
 import { AuthStore } from "./auth.js";
 import { LocalSettingsStore, type SettingsProvider, type SettingsUpdate } from "./settings.js";
 
@@ -18,10 +19,46 @@ export interface AppDependencies {
   settings?: LocalSettingsStore | undefined;
   onSettingsChanged?: ((config: ServerConfig) => void) | undefined;
   baseUrl?: string | undefined;
+  transition?: DomainTransition;
+  sourceRunsRunning?: () => number;
+  analysesCollecting?: () => number;
+  activeBackendUrl?: string;
+  activeBackendPublicUrl?: string;
 }
 
 export function createApp(deps: AppDependencies): Hono {
   const app = new Hono();
+  if (deps.transition) app.use("*", async (c, next) => {
+    if (c.req.path === "/api/health") return next();
+    await deps.transition!.waitForHandover();
+    if (deps.transition!.active) return next();
+    const origin = c.req.header("origin");
+    const allowed = new Set([process.env.PUBLIC_URL ?? deps.baseUrl ?? c.req.url, ...(process.env.ADDITIONAL_PUBLIC_ORIGINS ?? "").split(",").filter(Boolean)].map(value => new URL(value.trim()).origin));
+    if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method) && (!origin || !allowed.has(origin))) return c.json({ error: "Origem da solicitação inválida." }, 403);
+    const url = new URL(c.req.url);
+    const target = new URL(url.pathname + url.search, deps.activeBackendUrl!);
+    const headers = new Headers(c.req.raw.headers);
+    headers.delete("host");
+    if (origin && allowed.has(origin)) headers.set("origin", new URL(deps.activeBackendPublicUrl!).origin);
+    const proxied = new Request(target, c.req.raw);
+    headers.forEach((value, name) => proxied.headers.set(name, value));
+    proxied.headers.delete("host");
+    deps.transition!.beginProxy();
+    try {
+      const response = await fetch(proxied, { redirect: "manual" });
+      // Keep the request in flight until its response body has finished, including PDFs.
+      const body = response.body;
+      if (!body) { deps.transition!.finishProxy(); return response; }
+      const reader = body.getReader();
+      let finished = false;
+      const finish = () => { if (!finished) { finished = true; deps.transition!.finishProxy(); } };
+      const stream = new ReadableStream<Uint8Array>({
+        async pull(controller) { try { const part = await reader.read(); if (part.done) { finish(); controller.close(); } else controller.enqueue(part.value); } catch(error) { finish(); controller.error(error); } },
+        async cancel(reason) { finish(); await reader.cancel(reason); },
+      });
+      return new Response(stream, { status: response.status, statusText: response.statusText, headers: response.headers });
+    } catch (error) { deps.transition!.finishProxy(); throw error; }
+  });
   app.onError((error, c) => {
     if (error instanceof OperationBusyError) return c.json({error:error.message},409);
     if (error instanceof NotFoundError) return c.json({ error: error.message }, 404);
@@ -37,8 +74,8 @@ export function createApp(deps: AppDependencies): Hono {
       if (!c.req.path.startsWith("/api/") && !/^\/(presentation|apresentacao|presenter|apresentador)\//.test(c.req.path)) return next();
       if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
         const origin = c.req.header("origin");
-        const allowed = process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).origin : new URL(deps.baseUrl ?? c.req.url).origin;
-        if (!origin || origin !== allowed) return c.json({error:"Origem da solicitação inválida."},403);
+        const allowed = new Set([process.env.PUBLIC_URL ?? deps.baseUrl ?? c.req.url, ...(process.env.ADDITIONAL_PUBLIC_ORIGINS ?? "").split(",").filter(Boolean)].map(value => new URL(value.trim()).origin));
+        if (!origin || !allowed.has(origin)) return c.json({error:"Origem da solicitação inválida."},403);
       }
       if (c.req.path === "/api/auth/login") return next();
       if (auth.isRenderer(c)) return next();
@@ -62,7 +99,7 @@ export function createApp(deps: AppDependencies): Hono {
     app.post("/api/auth/logout", c => {auth.logout(c);return c.body(null,204);});
     app.post("/api/auth/password", async c => { const body=await readJson<{currentPassword:string;newPassword:string}>(c);auth.changePassword(c,body.currentPassword,body.newPassword);return c.json(auth.user(c)); });
   }
-  app.get("/api/health", (c) => c.json({ ok: true, running: true }));
+  app.get("/api/health", (c) => c.json({ ok: true, running: true, ...(deps.transition ? { proxyActive: !deps.transition.active, draining: deps.transition.draining, proxyInFlight: deps.transition.proxyInFlight, queuedRequests: deps.transition.queuedRequests, sourceRunsRunning: deps.sourceRunsRunning?.() ?? 0, analysesCollecting: deps.analysesCollecting?.() ?? 0 } : {}) }));
   app.get("/api/settings", (c) => {
     if (!deps.settings) throw new Error("Configurações locais não disponíveis.");
     return c.json(deps.settings.publicView());

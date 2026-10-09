@@ -1,18 +1,21 @@
 import { DatabaseSync } from "node:sqlite";
-import { mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export interface DatabaseOptions {
   filename?: string;
   migrationFile?: string;
+  existingOnly?: boolean;
 }
 
 export function createDatabase(options: DatabaseOptions = {}): DatabaseSync {
   const filename = options.filename ?? join(process.cwd(), "data", "dirijo-gbp.sqlite");
-  if (filename !== ":memory:") mkdirSync(dirname(filename), { recursive: true });
+  if (options.existingOnly && (filename === ":memory:" || !existsSync(filename))) throw new Error("HTTP candidate requires an existing SQLite database.");
+  if (!options.existingOnly && filename !== ":memory:") mkdirSync(dirname(filename), { recursive: true });
   const database = new DatabaseSync(filename, { timeout: 5_000 });
   database.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+  if (options.existingOnly) return database;
   const defaultMigration = fileURLToPath(new URL("../../migrations/001_initial.sql", import.meta.url));
   const migration = readFileSync(options.migrationFile ?? defaultMigration, "utf8");
   database.exec(migration);
