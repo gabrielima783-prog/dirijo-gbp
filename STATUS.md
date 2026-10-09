@@ -1,12 +1,12 @@
 # Dirijo GBP: estado operacional
 
-Atualizado em 07/10/2026.
+Atualizado em 09/10/2026.
 
 ## Produção
 
 Publicado em https://gbp.dirijobr.com, com https://gbp.viradadonutri.com.br preservado como alias de transição, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local ativa registrada na seção final da migração e no runbook. Banco, arquivos, credenciais e backups separados dos demais projetos.
 
-Release em produção: `c064927c5881595b2c1e95fa7701c5f77d70fbd9`, pacote SHA-256 `1dc5240e3f507f35bcf6331c3c4f1695f1bcc05271ad8064e313eb3e0d9c3430`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `5c0c350040cc24ed5a4446fea29e373e1b629133`. Rollback binário disponível pelo executor. Limpeza automática preservou releases protegidas, banco, arquivos e backups.
+Release em produção: `db3106049500add06ec7020cb6f4bde6cf3283fc`, pacote SHA-256 `60ad82fbb4d18c80fc35464315b4ff7548d12b669b9b68090997257830b9e07c`. Publicação pelo executor canônico e ciclo oficial de domínio. `current` aponta para essa release; `previous` para `655bb7e18bb11eb2c074d63729f79e1835c3f9b4`, compatível com os dois domínios. Retorno suportado por `stage-rollback` e ativação coordenada. Nenhuma limpeza de releases executada nesta publicação; banco, arquivos, secrets e backups preservados.
 
 Health interno e externo passaram. Dirijo Ops, Dirijo Flow, Dirijo Content e Assistente Pessoal continuaram retornando 200. Disco após conferência: 20% livre, 21.002.632 KiB disponíveis, 89% de inodes livres.
 
@@ -136,3 +136,14 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Build e 102 testes passaram. Regressão em Chromium cobre nota 4,0, nota 5,0, nome longo, PDFs de cinco páginas, celular de 390 px e rejeição de conteúdo excessivo. PDF original corrigido exportado e cinco páginas renderizadas e conferidas visualmente.
 - QA Linux isolado com a imagem vigente da VPS, sem rede, banco ou secrets, exportou o mesmo diagnóstico em cinco páginas e 253.085 bytes, sem cortes/sobreposição. Container e arquivos remotos temporários removidos.
 - Arquivo local para revisão: `output/dr-laser-pampulha-corrigido-2026-10-09.pdf`. Correção somente local, ainda sem commit/push ou publicação; produção continua na release e no container registrados acima. Gabriel aprovou a revisão e autorizou a publicação neste chat; promoção pelo executor oficial em preparação.
+
+
+## Correção preventiva do PDF publicada, 09/10/2026
+
+- Gabriel aprovou a revisão local e autorizou publicação. SHA ativo `db3106049500add06ec7020cb6f4bde6cf3283fc`, pacote SHA-256 `60ad82fbb4d18c80fc35464315b4ff7548d12b669b9b68090997257830b9e07c`, imagem imutável `sha256:3a3521b457af764b09a401bb27f3a1110008a7c437d3b6b2887bbce4a124cc1b`. Container `dirijo-gbp-domain-green-db3106049500-25eff30f`, porta local `4006`.
+- Build e 111 testes aprovados. Ajuste automático compartilhado pela prévia/PDF preserva texto, recupera espaços primeiro e limita escala a 86%; nomes longos quebram linha. Exportação aguarda fontes, imagens e ajuste. Regressões cobrem nota baixa/alta, nome maior, mobile e recusa de conteúdo excessivo, sem remover a proteção contra cortes.
+- Diagnóstico Dr. Laser Pampulha, ID `52363284-de3b-4e1b-891f-af3a720a354e`, baixado pelo botão real do painel com sessão existente do proprietário: PDF de cinco páginas, 253.085 bytes, gerado às 10h49 de São Paulo. Todas as páginas renderizadas e conferidas visualmente; slide 2 íntegro, sem corte ou rodapé sobreposto. Evidências e síntese preservadas; nenhuma nova coleta, chamada de IA ou envio comercial. Arquivo final local: `output/dr-laser-pampulha-producao-2026-10-09.pdf`.
+- Backup anterior à promoção revelou que o launcher ainda esperava a tag Compose legada, inexistente no ciclo de domínio. Corrigido para resolver a imagem imutável do container ativo e validar a identidade contra current, com três regressões específicas. Snapshot consistente cifrado enviado ao R2 antes da troca; depois da ativação, serviço oficial executou novamente com `Result=success` e timer ativo. Não houve alteração de chave, formato ou retenção.
+- Primeiro candidato `548fdbc523f8df18284deba443082e04502d5dcb` foi retirado pelo rollback oficial de preparação, antes de qualquer mudança de ingress, para incluir a correção do backup. A fonte continuou atendendo. Candidato final saudável recebeu os dois ingress, prova fresca e ativação oficial, com contagens HTTP/trabalhos/coletas zeradas.
+- Current `db3106049500add06ec7020cb6f4bde6cf3283fc`; previous `655bb7e18bb11eb2c074d63729f79e1835c3f9b4`, compatível e preservado parado. Sem transição pendente ou recuperação. Runtime ativo com `proxyActive=false` e `draining=false`; retorno disponível pelo ciclo oficial. Health interno e dos dois hosts HTTP 200; identidade sem sessão HTTP 401. Vizinhos Ops, Flow e Content HTTP 200; Assistente Pessoal HTTP 302 esperado.
+- Nenhuma limpeza de releases/cache realizada. Código, manifesto e documentação versionados e enviados à main. Os dois domínios permanecem ativos, Dirijo como principal. Nenhuma ação humana pendente para usar a correção.

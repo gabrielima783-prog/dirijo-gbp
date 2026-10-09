@@ -1,6 +1,6 @@
 # Dirijo GBP na VPS
 
-Stack exclusiva `dirijo-gbp-production`, root `/srv/dirijo-gbp`, alias SSH `central-ops-ovh`. Node 24.14.0, Playwright 1.63.0 com Chromium instalado pelo próprio pacote. Aplicação não privilegiada com 2 GB/1 CPU e acesso local. Desde 08/10/2026, o ciclo oficial de migração atende `https://gbp.dirijobr.com` e preserva `https://gbp.viradadonutri.com.br` na mesma aplicação autenticada. O container ativo usa `127.0.0.1:5006`; a porta de candidatos futuros é determinada pelo executor, sem depender do endereço legado `3006`.
+Stack exclusiva `dirijo-gbp-production`, root `/srv/dirijo-gbp`, alias SSH `central-ops-ovh`. Node 24.14.0, Playwright 1.63.0 com Chromium instalado pelo próprio pacote. Aplicação não privilegiada com 2 GB/1 CPU e acesso local. Desde 08/10/2026, o ciclo oficial de migração atende `https://gbp.dirijobr.com` e preserva `https://gbp.viradadonutri.com.br` na mesma aplicação autenticada. O container ativo usa `127.0.0.1:4006`; a porta de candidatos futuros é determinada pelo executor, sem depender do endereço legado `3006`.
 
 ## Provisionamento privado
 
@@ -71,3 +71,8 @@ A prévia comercial ajusta cada página somente após fontes e imagens carregare
 ## Imagem do backup no ciclo de domínio, 09/10/2026
 
 O launcher do backup identifica a imagem imutável do container registrado em `domain-migration-active.json`, exigindo que sua release coincida com `current`. No ciclo Compose legado, resolve o digest da imagem versionada local. Não presume que o ciclo de domínio também criou a tag `dirijo-gbp:<SHA>` e não tenta baixar imagem do registro. Mantém o snapshot SQLite consistente, a cifra e o upload multipart existentes. Divergência de identidade interrompe o backup.
+
+
+## Runtime após a correção do PDF, 09/10/2026
+
+Current `db3106049500add06ec7020cb6f4bde6cf3283fc`, container `dirijo-gbp-domain-green-db3106049500-25eff30f`, porta `4006`; previous compatível `655bb7e18bb11eb2c074d63729f79e1835c3f9b4` preservado parado. Ambos os ingress apontam ao current, mantendo domínio Dirijo principal e Virada adicional. A referência de current/previous de 08/10 acima é histórica. Backup oficial e timer validados com sucesso após promoção. Retorno continua por `stage-rollback` e ativação com roteamento/prova fresca, sem Compose direto.
