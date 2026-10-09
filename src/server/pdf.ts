@@ -63,6 +63,7 @@ async function waitForPresentation(page: import('playwright').Page, timeoutMs: n
       }),
     );
   });
+  await page.waitForSelector('[data-presentation-ready="true"]', { timeout: timeoutMs });
 }
 
 async function validateRenderedSlides(

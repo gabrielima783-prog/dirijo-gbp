@@ -4,7 +4,7 @@ Atualizado em 07/10/2026.
 
 ## Produção
 
-Publicado em https://gbp.viradadonutri.com.br, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local 3006. Banco, arquivos, credenciais e backups separados dos demais projetos.
+Publicado em https://gbp.dirijobr.com, com https://gbp.viradadonutri.com.br preservado como alias de transição, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local ativa registrada na seção final da migração e no runbook. Banco, arquivos, credenciais e backups separados dos demais projetos.
 
 Release em produção: `c064927c5881595b2c1e95fa7701c5f77d70fbd9`, pacote SHA-256 `1dc5240e3f507f35bcf6331c3c4f1695f1bcc05271ad8064e313eb3e0d9c3430`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `5c0c350040cc24ed5a4446fea29e373e1b629133`. Rollback binário disponível pelo executor. Limpeza automática preservou releases protegidas, banco, arquivos e backups.
 
@@ -108,3 +108,31 @@ Runbook: `infra/VPS-RUNBOOK.md`.
 - Correção do PDF existente da Nicole autorizada, preservando evidências reais e análise concluída. Ella foi consultada somente para validar a regra, sem nova exportação ou alteração dos dados. Publicação e exportação final concluídas e conferidas.
 - Publicado o SHA `c064927c5881595b2c1e95fa7701c5f77d70fbd9`, checksum `1dc5240e3f507f35bcf6331c3c4f1695f1bcc05271ad8064e313eb3e0d9c3430`. Backup cifrado concluído antes da promoção. Smoke real da aplicação passou com cinco páginas, 214.575 bytes e sem pendência de revisão. Health interno, público e vizinhos HTTP 200; current/previous confirmados pelo executor.
 - PDF existente da Nicole substituído pela exportação autenticada da aplicação: cinco páginas, 212.422 bytes. Ordem conferida: abertura sobre Google, Google, Instagram, prioridades e CTA. Todas as páginas renderizadas e verificadas visualmente. Referência de frequência em 30 dias; bio/CTA próprios; conversa sobre Google com 20 minutos, sem custo e sem compromisso. Evidências e resultados da IA preservados, sem nova coleta ou chamada paga. Sessões temporárias revogadas. Arquivo local final: `output/nicole-romano-corrigida-2026-10-07.pdf`.
+
+
+## Migração de domínio em andamento, 08/10/2026
+
+- Primeira promoção de compatibilidade concluída pelo executor oficial, release `655bb7e18bb11eb2c074d63729f79e1835c3f9b4`. `gbp.dirijobr.com` e `gbp.viradadonutri.com.br` atendem a mesma aplicação com autenticação própria. Ambos passaram health e página HTTP 200, APIs privadas HTTP 401 sem sessão. Proxy desativado, marcador de jobs ativo root0444, contadores de trabalho e conexões em execução zerados na troca. Container anterior `c064927c5881595b2c1e95fa7701c5f77d70fbd9` encerrado com segurança; banco, dados, secrets e snapshots preservados. Ops, Flow, Chatwoot e demais serviços vizinhos continuaram respondendo.
+- O endereço principal ainda é `https://gbp.viradadonutri.com.br` nesta primeira promoção. A segunda preparação, autorizada, mantém o mesmo código e inverte somente o endereço principal para `https://gbp.dirijobr.com`, com origem antiga permitida. Build e 107 testes passaram; candidato final em preparação paralela. Roteamento e ativação final aguardam revisão do candidato e prova atualizada. Nenhuma coleta paga, diagnóstico, email ou evento comercial foi disparado nesta migração; nenhuma limpeza executada. Retorno oficial após a próxima promoção preservará o candidato compatível atual, sem reativar a fonte antiga incompatível.
+
+
+## Domínio principal Dirijo concluído, 08/10/2026
+
+- Principal `https://gbp.dirijobr.com`; origem adicional `https://gbp.viradadonutri.com.br` permanece disponível e protegida por autenticação própria. Promoção final concluída pelo executor oficial no mesmo código `655bb7e18bb11eb2c074d63729f79e1835c3f9b4`, com `PUBLIC_URL` novo e `ADDITIONAL_PUBLIC_ORIGINS` antigo. A etapa em preparação acima foi concluída.
+- Candidato final `dirijo-gbp-domain-green-655bb7e18bb1-5a83bbed`, porta local `5006`; imagem imutável `sha256:544969a7bb4687c56b75b396d807a22d271b112b41e14b370e1a98f03c20bf0a`. Current e previous têm o mesmo SHA de aplicação; as configurações e os containers diferem. Previous é o candidato compatível da primeira promoção, com principal antigo, preservado por snapshot e encerrado após drenagem. `previous_compatible=true`; retorno usa somente o ciclo oficial de migração, nunca recriação direta do Compose.
+- Build e 107 testes passaram uma vez na preparação final, reutilizando dependências compatíveis com o lock. Health dos dois domínios HTTP 200, páginas HTTP 200 e APIs privadas HTTP 401 sem sessão. Proxy desativado e drenagem encerrada, contadores zerados; marcador ativo root0444. Estado ativo persistido, sem transição pendente. Ops e Flow internos HTTP 200; Chatwoot HTTP 301 esperado para HTTPS. Vizinhos públicos declarados no manifesto: Flow e Content HTTP 200; Ops e Assistente Pessoal HTTP 302 para o controle de acesso. Não houve coleta paga, chamada de IA, email, evento comercial nem limpeza. Banco, histórico, secrets, snapshots e backups preservados.
+
+
+## E-mail do administrador alterado, 09/10/2026
+
+- A pedido de Gabriel, login do administrador alterado de `gabriel.ima783@gmail.com` para `adm@dirijobr.com` no banco de produção. ID, senha, permissões, estado de troca de senha, sessões e demais usuários preservados. A conta de Iuri permaneceu idêntica. Alteração transacional, integridade SQLite aprovada e evento de auditoria registrado. Registro privado de reversão do e-mail preservado junto aos dados da aplicação.
+- Sem mudança de código, imagem, current/previous ou configuração de domínio. Release vigente `655bb7e18bb11eb2c074d63729f79e1835c3f9b4`, container ativo conforme seção anterior. Health interno e ambos os domínios HTTP 200; API de identidade HTTP 401 sem sessão. Vizinhos Flow, Content e health da Ops HTTP 200; Assistente Pessoal HTTP 302 esperado. Nenhum teste de login com senha foi executado, pois a senha atual não está disponível em texto. Nenhuma coleta, envio, publicação ou limpeza executada.
+
+
+## Correção preventiva do layout PDF preparada, 09/10/2026
+
+- Diagnóstico Dr. Laser Pampulha apresentou corte no slide 2: conteúdo ultrapassava a página em 74 pixels. Evidências, análise e texto comercial preservados; nenhuma coleta ou chamada de IA executada.
+- Prévia e PDF passam a medir cada página após fontes e imagens carregarem. Páginas que excedem a área disponível reduzem primeiro espaços; fallback limitado a 86% de escala. Cabeçalho, rodapé e intervalo de segurança preservados. Nomes sem pontos de quebra podem quebrar linha. A exportação aguarda o ajuste e mantém a rejeição obrigatória de conteúdo excepcional que não cabe no limite legível.
+- Build e 102 testes passaram. Regressão em Chromium cobre nota 4,0, nota 5,0, nome longo, PDFs de cinco páginas, celular de 390 px e rejeição de conteúdo excessivo. PDF original corrigido exportado e cinco páginas renderizadas e conferidas visualmente.
+- QA Linux isolado com a imagem vigente da VPS, sem rede, banco ou secrets, exportou o mesmo diagnóstico em cinco páginas e 253.085 bytes, sem cortes/sobreposição. Container e arquivos remotos temporários removidos.
+- Arquivo local para revisão: `output/dr-laser-pampulha-corrigido-2026-10-09.pdf`. Correção somente local, ainda sem commit/push ou publicação; produção continua na release e no container registrados acima. Gabriel aprovou a revisão e autorizou a publicação neste chat; promoção pelo executor oficial em preparação.

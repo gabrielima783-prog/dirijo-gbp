@@ -1,11 +1,35 @@
 import type { ComponentChildren } from 'preact';
+import { useEffect, useRef } from 'preact/hooks';
 import type { Analysis } from './types';
 import { buildCompactDiagnostic } from '../../core/compact-diagnostic.js';
 import './compact-diagnostic.css';
+import { fitCompactPages } from './compact-layout';
 
 export function CompactDiagnostic({ analysis }: { analysis: Analysis }) {
   const diagnostic = buildCompactDiagnostic(analysis);
   const company = diagnostic.companyName;
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    let cancelled = false;
+    const fit = () => {
+      if (cancelled) return;
+      fitCompactPages(root);
+      root.dataset.presentationReady = 'true';
+    };
+    root.dataset.presentationReady = 'false';
+    const images = [...root.querySelectorAll('img')];
+    const loaded = images.map(image => image.decode().catch(() => undefined));
+    let observer: ResizeObserver | undefined;
+    void Promise.all([document.fonts.ready, ...loaded]).then(() => {
+      if (cancelled) return;
+      fit();
+      observer = new ResizeObserver(fit);
+      observer.observe(root);
+    });
+    return () => { cancelled = true; observer?.disconnect(); };
+  }, [analysis]);
   function Page({ number, section, dark = false, children }: { number: number; section: string; dark?: boolean; children: ComponentChildren }) {
     return <section class={`compact-page${dark ? ' compact-page--dark' : ''}`} data-slide={String(number)} data-format="mobile" aria-label={`Página ${number}: ${section}`}>
       <header class="compact-page-header"><div class="brand" aria-label="Dirijo"><img src="/dirijo-simbolo.svg" alt="" width="46" height="46"/><b>dirijo</b></div><span>@dirijo.br</span></header>
@@ -14,7 +38,7 @@ export function CompactDiagnostic({ analysis }: { analysis: Analysis }) {
     </section>;
   }
   const Metrics = ({items}: {items: {value:string;label:string}[]}) => <div class="stats">{items.map(item=><div key={item.label}><b>{item.value}</b><span>{item.label}</span></div>)}</div>;
-  return <div class="compact-diagnostic compact-editorial" data-compact-diagnostic="true" data-presentation-ready="true" data-review-required={String(diagnostic.reviewRequired)}>
+  return <div ref={rootRef} class="compact-diagnostic compact-editorial" data-compact-diagnostic="true" data-presentation-ready="false" data-review-required={String(diagnostic.reviewRequired)}>
     <Page number={1} section={`Análise de ${company}`}>
       <h1>{diagnostic.headline}<br/><em>{diagnostic.openingEmphasis}</em></h1><p class="lead">{diagnostic.intro}</p>
       {diagnostic.metrics.length>0&&<Metrics items={diagnostic.metrics}/>}
