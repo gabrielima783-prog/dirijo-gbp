@@ -4,7 +4,7 @@ Atualizado em 07/10/2026.
 
 ## Produção
 
-Publicado em https://gbp.viradadonutri.com.br, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local 3006. Banco, arquivos, credenciais e backups separados dos demais projetos.
+Publicado em https://gbp.dirijobr.com, com https://gbp.viradadonutri.com.br preservado como alias de transição, na VPS `central-ops-ovh`, stack exclusiva `dirijo-gbp-production`. Entrada HTTPS por Tunnel dedicado da Cloudflare; aplicação vinculada somente à porta local ativa registrada na seção final da migração e no runbook. Banco, arquivos, credenciais e backups separados dos demais projetos.
 
 Release em produção: `c064927c5881595b2c1e95fa7701c5f77d70fbd9`, pacote SHA-256 `1dc5240e3f507f35bcf6331c3c4f1695f1bcc05271ad8064e313eb3e0d9c3430`. Publicação executada pelo manifesto `.deploy/vps.json` e executor canônico. `current` aponta para essa release; `previous` para `5c0c350040cc24ed5a4446fea29e373e1b629133`. Rollback binário disponível pelo executor. Limpeza automática preservou releases protegidas, banco, arquivos e backups.
 
